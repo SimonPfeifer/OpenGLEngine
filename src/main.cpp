@@ -127,7 +127,7 @@ int main(void)
   double cursorPosX, cursorPosY;
   glfwGetCursorPos(window, &cursorPosX, &cursorPosY);
   Camera camera(window, (float)cursorPosX, (float)cursorPosY);
-  camera.position = glm::vec3(0.0f, 0.0f, 0.0f);
+  camera.position = glm::vec3(0.0f, 0.0f, -10.0f);
 
   // Assets.
   AssetBox box;
@@ -138,11 +138,13 @@ int main(void)
 
   // Lights.
   LightBox light;
-  light.position = glm::vec3(0.0f, 2.0f, 10.f);
-  light.color = glm::vec4(1.0f, 0.9f, 0.1f, 1.0f);
+  light.position = glm::vec3(0.0f, 0.0f, 0.0f);
+  light.color = glm::vec4(1.0f, 0.9f, 0.1f, 500.0f);
   light.shader.loadVertexShader("D:\\Documents\\Cpp\\OpenGLEngine\\src\\shader\\light.vert");
   light.shader.loadFragmentShader("D:\\Documents\\Cpp\\OpenGLEngine\\src\\shader\\light.frag");
   light.shader.compileShaderProgram();
+
+  glm::vec4 ambientLight = glm::vec4(0.16f, 0.20f, 0.28f, 1.0f);
 
   // TODO: Replaced this by an Entity class/manager.
   const int nCubes = 1000;
@@ -155,8 +157,6 @@ int main(void)
         (float)std::rand() / (float)RAND_MAX * cubePosExtend - cubePosExtend / 2.0f,
         (float)std::rand() / (float)RAND_MAX * cubePosExtend - cubePosExtend / 2.0f);
   }
-
-  glm::vec3 testColor = glm::vec3(0.5f, 0.5f, 0.5f);
 
   // Set timers.
   glfwSetTime(0.0f);
@@ -195,12 +195,11 @@ int main(void)
     // TODO: Move the material variables into the Asset class and set the
     //       shader uniforms via the render method.
     box.shader.use();
-    box.shader.setUniformVec3f("testColor", testColor);
-    box.shader.setUniformVec4f("ambientLight", glm::vec4(0.05f, 0.1f, 0.2f, 1.0f));
+    box.shader.setUniformVec4f("ambientLight", ambientLight);
     box.shader.setUniformVec3f("lightPosition", light.position);
     box.shader.setUniformVec4f("lightColor", light.color);
     box.shader.setUniformVec3f("cameraPosition", camera.position);
-    box.shader.setUniformFloat("specularStrength", 10.0f);
+    box.shader.setUniformFloat("specularStrength", 0.5f);
     for (int modelIdx = 0; modelIdx < nCubes; modelIdx++)
     {
       // Transform to screen space
@@ -209,11 +208,6 @@ int main(void)
 
       box.render(camera);
     }
-    light.position.x += 0.1f * cos(lastTimeFrame/2.0f);
-    light.position.z += 0.1f * sin(lastTimeFrame/2.0f);
-
-    testColor.x = cos(lastTimeFrame/2.0f);
-    testColor.z = sin(lastTimeFrame/2.0f);
 
     // Swap front and back buffers.
     glfwSwapBuffers(window);

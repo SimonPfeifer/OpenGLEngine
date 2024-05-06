@@ -119,10 +119,10 @@ AssetBox::AssetBox()
   float colorInput[36 * 4];
   for (int i = 0; i < 36; i++)
   {
-    colorInput[0 + 4 * i] = 1.0f;
-    colorInput[1 + 4 * i] = 1.0f;
-    colorInput[2 + 4 * i] = 1.0f;
-    colorInput[3 + 4 * i] = 1.0f;
+    colorInput[0 + 4 * i] = 0.5f;
+    colorInput[1 + 4 * i] = 0.5f;
+    colorInput[2 + 4 * i] = 0.5f;
+    colorInput[3 + 4 * i] = 0.5f;
   }
 
   unsigned int vertexLength = sizeof(vertexInput) / sizeof(*vertexInput);
