@@ -1,7 +1,8 @@
 #include "AssetBox.h"
 #include "Camera.h"
 #include "LightBox.h"
-#include "shader/Shader.h"
+#include "Model.h"
+#include "Shader.h"
 #include "Texture.h"
 
 #include <GLFW/glfw3.h>
@@ -129,6 +130,12 @@ int main(void)
   Camera camera(window, (float)cursorPosX, (float)cursorPosY);
   camera.position = glm::vec3(0.0f, 0.0f, -10.0f);
 
+  Model model;
+  model.loadMesh("D:\\Documents\\Cpp\\OpenGLEngine\\res\\box\\box.obj");
+
+  Shader shaderDefault("D:\\Documents\\Cpp\\OpenGLEngine\\src\\shader\\default.vert",
+                       "D:\\Documents\\Cpp\\OpenGLEngine\\src\\shader\\default.frag");
+
   // Assets.
   AssetBox box;
   box.texture.loadTextureData("D:\\Documents\\Cpp\\OpenGLEngine\\res\\wall.jpg");
@@ -192,6 +199,8 @@ int main(void)
     light.render(camera);
 
     // Render the objects.
+    model.render(camera, light, shaderDefault);
+
     // TODO: Move the material variables into the Asset class and set the
     //       shader uniforms via the render method.
     box.shader.use();

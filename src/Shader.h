@@ -16,6 +16,7 @@ public:
 	GLuint fragmentShader;
 
 	Shader();
+  Shader(const char* vertPath, const char* fragPath);
 	~Shader();
 	void loadVertexShader(const char* sourcePath);
 	void loadFragmentShader(const char* sourcePath);

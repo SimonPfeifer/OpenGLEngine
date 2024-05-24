@@ -8,8 +8,14 @@
 Shader::Shader()
 {
 	shaderId = glCreateProgram();
-  vertexShader = 0;
-  fragmentShader = 0;
+}
+
+Shader::Shader(const char* vertPath, const char* fragPath)
+{
+  shaderId = glCreateProgram();
+  loadVertexShader(vertPath);
+  loadFragmentShader(fragPath);
+  compileShaderProgram();
 }
 
 Shader::~Shader()
