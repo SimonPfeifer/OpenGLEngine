@@ -9,7 +9,7 @@ add_compile_options(-DGLFW_INCLUDE_NONE)
 
 add_executable(main 
   main.cpp
-  Asset.cpp AssetBox.cpp Camera.cpp IndexBuffer.cpp Light.cpp LightBox.cpp Texture.cpp VertexBuffer.cpp 
+  Asset.cpp AssetBox.cpp Camera.cpp IndexBuffer.cpp Light.cpp LightBox.cpp Model.cpp Mesh.cpp ObjLoader.cpp Texture.cpp VertexBuffer.cpp 
   shader/Shader.cpp
   stb_image/stb_image.cpp stb_image/stb_image.h
 )
