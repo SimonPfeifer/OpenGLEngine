@@ -9,11 +9,11 @@ add_compile_options(-DGLFW_INCLUDE_NONE)
 
 add_executable(main 
   main.cpp
-  Asset.cpp AssetBox.cpp Camera.cpp IndexBuffer.cpp Light.cpp LightBox.cpp Model.cpp Mesh.cpp ObjLoader.cpp Shader.cpp Texture.cpp VertexBuffer.cpp 
+  Asset.cpp AssetBox.cpp Camera.cpp Light.cpp LightBox.cpp Model.cpp Mesh.cpp Shader.cpp Texture.cpp
   stb_image/stb_image.cpp stb_image/stb_image.h
 )
 
 find_package(OpenGL REQUIRED)
 include_directories(${OPENGL_INCLUDE_DIRS})
 
-target_link_libraries(main PRIVATE ${OPENGL_LIBRARIES} glfw glm::glm glad)
+target_link_libraries(main PRIVATE ${OPENGL_LIBRARIES} assimp glfw glm::glm glad)

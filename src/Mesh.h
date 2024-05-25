@@ -1,13 +1,10 @@
 #pragma once
 
-#include "Camera.h"
-#include "Light.h"
-#include "Shader.h"
-
+#include <glad/glad.h>
 #include <glm/glm.hpp>
 
 #include <vector>
-#include <string> 
+
 
 struct Vertex
 {
@@ -19,21 +16,12 @@ struct Vertex
 class Mesh
 {
 public:
-  Mesh(std::vector<Vertex> vertices,
-       std::vector<int> indices);
+  Mesh(std::vector<Vertex> vertices, std::vector<int> indices);
 
-  Mesh(std::vector<glm::vec3> vert, std::vector<int> indices);
-
-  void render(Camera camera, Light light, Shader &shader);
-
-  std::vector<Vertex> vertices;
-  std::vector<int> indices;
+  GLuint vao;
+  int nIndices;
 
 private:
-
   GLuint vbo;
   GLuint ebo;
-  GLuint vao;
-
-  void loadMesh();
 };
