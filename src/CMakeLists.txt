@@ -16,4 +16,5 @@ add_executable(main
 find_package(OpenGL REQUIRED)
 include_directories(${OPENGL_INCLUDE_DIRS})
 
-target_link_libraries(main PRIVATE ${OPENGL_LIBRARIES} assimp glfw glm::glm glad)
+
+target_link_libraries(main PRIVATE ${OPENGL_LIBRARIES} assimp::assimp glfw glm::glm glad)
