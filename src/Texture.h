@@ -1,20 +1,25 @@
 #pragma once
 
 #include <glad/glad.h>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
+
+#include <string>
 
 class Texture
 {
 public:
-	int texWidth;
-	int texHeight;
-	int colourChannels;
-	unsigned int textureId;
+
+	int width;
+	int height;
 	
 	Texture();
-	~Texture();
+  Texture(const char* filepath);
 
-	void loadTextureData(const char* filePath);
+  void bind(const int textureSlot);
+	bool loadTextureData(const char* filepath);
+  bool loadTextureData(std::string filepath);
+
+  GLuint getId() {return textureId;}
+
+private:
+	GLuint textureId;
 };

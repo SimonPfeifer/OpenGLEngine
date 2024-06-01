@@ -80,7 +80,8 @@ void Asset::render(Camera camera)
   shader.setUniformMatrix4f("view", camera.view);
   shader.setUniformMatrix4f("projection", camera.projection);
 
-	glBindTexture(GL_TEXTURE_2D, texture.textureId);
+  texture.bind(0);
+  
 	glBindVertexArray(vaoId);
 	glDrawElements(GL_TRIANGLES, indexLength, GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);

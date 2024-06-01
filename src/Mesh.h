@@ -5,7 +5,6 @@
 
 #include <vector>
 
-
 struct Vertex
 {
   glm::vec3 position;
@@ -18,10 +17,11 @@ class Mesh
 public:
   Mesh(std::vector<Vertex> vertices, std::vector<int> indices);
 
-  GLuint vao;
-  int nIndices;
+  void draw();
 
 private:
+  GLuint vao;
   GLuint vbo;
   GLuint ebo;
+  int nIndices;
 };

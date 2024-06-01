@@ -78,7 +78,7 @@ int main(void)
   // Initialize the GLFW library.
   if (!glfwInit())
   {
-    std::cout << "ERROR: could not start GLFW3" << std::endl;
+    std::cerr << "ERROR::main could not start GLFW3" << std::endl;
     return -1;
   }
 
@@ -91,7 +91,7 @@ int main(void)
   window = glfwCreateWindow(WIDTH, HEIGHT, "OpenGLEngine", NULL, NULL);
   if (!window)
   {
-    std::cout << "ERROR: could not open window with GLFW3" << std::endl;
+    std::cerr << "ERROR::main could not open window with GLFW3" << std::endl;
     glfwTerminate();
     return -1;
   }
@@ -108,62 +108,44 @@ int main(void)
   // Initialise the GLAD library.
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
   {
-    std::cout << "Failed to initialize GLAD" << std::endl;
+    std::cerr << "ERROR::main Failed to initialize GLAD" << std::endl;
     return -1;
   }
 
   // Get OpenGL version info and render hardware.
   const GLubyte* renderer = glGetString(GL_RENDERER);
   const GLubyte* version = glGetString(GL_VERSION);
-  std::cout << "Renderer: " << renderer << std::endl;
-  std::cout << "OpenGL version supported " << version << std::endl;
+  std::cout << "INFO::main Renderer: " << renderer << std::endl;
+  std::cout << "INFO::main OpenGL version supported " << version << std::endl;
 
   // Enable depth testing 
   glEnable(GL_DEPTH_TEST);
 
   // Set OpenGL rendering mode.
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-  
+
   // Camera.
   double cursorPosX, cursorPosY;
   glfwGetCursorPos(window, &cursorPosX, &cursorPosY);
   Camera camera(window, (float)cursorPosX, (float)cursorPosY);
   camera.position = glm::vec3(0.0f, 0.0f, -10.0f);
 
+  // Models.
   Model model;
-  model.loadMesh("D:\\Documents\\Cpp\\OpenGLEngine\\res\\box\\box.obj");
-
-  Shader shaderDefault("D:\\Documents\\Cpp\\OpenGLEngine\\src\\shader\\default.vert",
-                       "D:\\Documents\\Cpp\\OpenGLEngine\\src\\shader\\default.frag");
-
-  // Assets.
-  AssetBox box;
-  box.texture.loadTextureData("D:\\Documents\\Cpp\\OpenGLEngine\\res\\wall.jpg");
-  box.shader.loadVertexShader("D:\\Documents\\Cpp\\OpenGLEngine\\src\\shader\\phong.vert");
-  box.shader.loadFragmentShader("D:\\Documents\\Cpp\\OpenGLEngine\\src\\shader\\phong.frag");
-  box.shader.compileShaderProgram();
-
+  model.loadModel("D:\\Documents\\Cpp\\OpenGLEngine\\res\\backpack\\backpack.obj");
+  
+  // Shaders.
+  Shader shaderBlinn("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\blinn.vert",
+                     "D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\blinn.frag");
+  
+  Shader shaderLight("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\light.vert",
+                     "D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\light.frag");
+  
   // Lights.
   LightBox light;
-  light.position = glm::vec3(0.0f, 0.0f, 0.0f);
-  light.color = glm::vec4(1.0f, 0.9f, 0.1f, 500.0f);
-  light.shader.loadVertexShader("D:\\Documents\\Cpp\\OpenGLEngine\\src\\shader\\light.vert");
-  light.shader.loadFragmentShader("D:\\Documents\\Cpp\\OpenGLEngine\\src\\shader\\light.frag");
-  light.shader.compileShaderProgram();
-
-  glm::vec4 ambientLight = glm::vec4(0.16f, 0.20f, 0.28f, 1.0f);
-
-  // TODO: Replaced this by an Entity class/manager.
-  const int nCubes = 1000;
-  const float cubePosExtend = 100.0f;
-  glm::vec3 cubePositions[nCubes];
-  for (int i = 0; i < nCubes; i++)
-  {
-    cubePositions[i] = glm::vec3(
-        (float)std::rand() / (float)RAND_MAX * cubePosExtend - cubePosExtend / 2.0f,
-        (float)std::rand() / (float)RAND_MAX * cubePosExtend - cubePosExtend / 2.0f,
-        (float)std::rand() / (float)RAND_MAX * cubePosExtend - cubePosExtend / 2.0f);
-  }
+  light.position = glm::vec3(0.0f, 0.0f, 20.0f);
+  light.color = glm::vec4(1.0f, 1.0f, 1.0f, 200.0f);
+  light.shader = shaderLight;
 
   // Set timers.
   glfwSetTime(0.0f);
@@ -176,9 +158,6 @@ int main(void)
     // Calculate the time since last frame.
     deltaTime = (float)(glfwGetTime() - lastTimeFrame);
     lastTimeFrame = glfwGetTime();
-   
-    // Clear the color and depth buffer.
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Detect and manage input.
     processInput(window, camera, deltaTime);
@@ -192,31 +171,15 @@ int main(void)
     // Update objects.
 
     // Start rendering objects.
-    // Set background colour.
+    // Clear buffers and set background colour.
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
 
     // Render the lights.    
     light.render(camera);
 
     // Render the objects.
-    model.render(camera, light, shaderDefault);
-
-    // TODO: Move the material variables into the Asset class and set the
-    //       shader uniforms via the render method.
-    box.shader.use();
-    box.shader.setUniformVec4f("ambientLight", ambientLight);
-    box.shader.setUniformVec3f("lightPosition", light.position);
-    box.shader.setUniformVec4f("lightColor", light.color);
-    box.shader.setUniformVec3f("cameraPosition", camera.position);
-    box.shader.setUniformFloat("specularStrength", 0.5f);
-    for (int modelIdx = 0; modelIdx < nCubes; modelIdx++)
-    {
-      // Transform to screen space
-      box.position = cubePositions[modelIdx];
-      box.rotation = glm::vec3(9.0f*modelIdx*modelIdx, 22.0f*modelIdx, 17.0f*modelIdx);
-
-      box.render(camera);
-    }
+    model.render(camera, light, shaderBlinn);
 
     // Swap front and back buffers.
     glfwSwapBuffers(window);

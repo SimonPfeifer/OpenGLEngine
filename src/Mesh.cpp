@@ -31,3 +31,9 @@ Mesh::Mesh(std::vector<Vertex> vertices, std::vector<int> indices)
 
   glBindVertexArray(0);
 }
+
+void Mesh::draw()
+{
+  glBindVertexArray(vao);
+  glDrawElements(GL_TRIANGLES, nIndices, GL_UNSIGNED_INT, 0);
+}
