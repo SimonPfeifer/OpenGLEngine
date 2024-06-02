@@ -1,23 +1,23 @@
 #version 330 core
-layout(location = 0) in vec3 aPos;
+layout(location = 0) in vec3 aPosition;
 layout(location = 1) in vec3 aNormal;
-layout(location = 2) in vec2 aTexCoord;
+layout(location = 2) in vec2 aUV;
 
 out vec3 vertPosition;
 out vec3 vertNormal;
-out vec2 texCoord;
+out vec2 vertUV;
 
-uniform mat4 model;
-uniform mat4 view;
+uniform mat4 modelView;
 uniform mat4 projection;
+
 
 void main()
 {
   // Vertex position in clip space.
-  gl_Position = projection * view * model * vec4(aPos, 1.0f);
+  gl_Position = projection * modelView * vec4(aPosition, 1.0f);
   
   // Variables needed by the fragment shader.
-  vertPosition = vec3(model * vec4(aPos, 1.0f));
-  vertNormal = mat3(transpose(inverse(model))) * aNormal;
-  texCoord = aTexCoord;
+  vertPosition = vec3(modelView * vec4(aPosition, 1.0f));
+  vertNormal = transpose(inverse(mat3(modelView))) * aNormal;
+  vertUV = aUV;
 }

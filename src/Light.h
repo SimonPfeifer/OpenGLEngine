@@ -10,10 +10,16 @@
 class Light : public Asset
 {
 public:
+	Light();
+
 	float intensity;
 	glm::vec4 color;
 
-	Light();
+  void update(Camera& camera);
+	void render(Camera& camera);
 
-	void render(Camera camera);
+  glm::vec3 getPositionView() {return positionView;}
+  
+private:
+  glm::vec3 positionView;
 };

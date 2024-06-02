@@ -4,9 +4,16 @@ Light::Light()
 {
 	intensity = 1.0f;
 	color = glm::vec4(1.0f);
+
+  positionView = glm::vec3(0.0f);
 }
 
-void Light::render(Camera camera)
+void Light::update(Camera& camera)
+{
+  positionView = glm::vec3(camera.view * glm::vec4(position, 1.0f));
+}
+
+void Light::render(Camera& camera)
 {
   glUseProgram(shader.shaderId);
 

@@ -10,6 +10,7 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <glm/glm.hpp>
 
 #include <map>
 #include <vector>
@@ -17,10 +18,26 @@
 class Model
 {
 public:
+  Model();
+  Model(const char* filepath);
+  
   bool loadModel(const char* filepath);
+
+	glm::vec3 scale;
+	glm::vec3 position;
+	glm::vec3 rotation;
+
+  void update();
+
   void render(Camera& camera, Light& light, Shader& shader);
 
 private:
+  // Model transformations.
+  glm::mat4 model;
+
+  void applyTransformations();
+  
+  // Mesh and material loading.
   std::vector<Mesh> meshes;
   std::vector<Material> materials;
   std::vector<unsigned int> materialIndices;

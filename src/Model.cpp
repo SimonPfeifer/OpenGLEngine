@@ -8,11 +8,18 @@
 // These should be really be user defined per model import.
 #define ASSIMP_LOAD_FLAGS (aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices)
 
-void Model::clear()
+Model::Model()
 {
-  meshes.clear();
-  materialIndices.clear();
-  materials.clear();
+  scale = glm::vec3(1.0f);
+  position = glm::vec3(0.0f);
+  rotation = glm::vec3(0.0f);
+
+  model = glm::mat4(1.0f);
+}
+
+Model::Model(const char* filepath) : Model()
+{
+  loadModel(filepath);
 }
 
 bool Model::loadModel(const char* filepath)
@@ -36,6 +43,50 @@ bool Model::loadModel(const char* filepath)
   return success;
 }
 
+void Model::update()
+{
+  applyTransformations();
+}
+
+void Model::render(Camera& camera, Light& light, Shader& shader)
+{
+  // Load variables into shader.
+  shader.use();
+  shader.setUniformMatrix4f("modelView", camera.view * model);
+  shader.setUniformMatrix4f("projection", camera.projection);
+
+  shader.setUniformVec3f("cameraPosition", camera.position);
+  shader.setUniformVec3f("lightPosition", light.getPositionView());
+  shader.setUniformVec4f("lightColor", light.color);
+
+  for (size_t i=0; i<meshes.size(); ++i)
+  {
+    // Load material data.
+    if (i==0 || materialIndices[i]!=materialIndices[i-1])
+      materials[materialIndices[i]].activate(shader);
+
+    // Render mesh.
+    meshes[i].draw();
+  }
+  glBindVertexArray(0);
+}
+
+void Model::applyTransformations()
+{
+	model = glm::mat4(1.0f);
+	model = glm::translate(model, position);
+	model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
+	model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
+	model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
+	model = glm::scale(model, scale);
+}
+
+void Model::clear()
+{
+  meshes.clear();
+  materialIndices.clear();
+  materials.clear();
+}
 
 bool Model::processScene(const aiScene* scene, const char* filepath)
 {
@@ -200,26 +251,3 @@ bool Model::loadMaterialTexture(const aiMaterial* aimaterial,
   return true;
 }
 
-void Model::render(Camera& camera, Light& light, Shader& shader)
-{
-  // Load variables into shader.
-  shader.use();
-  shader.setUniformMatrix4f("model", glm::mat4(1.0f));
-  shader.setUniformMatrix4f("view", camera.view);
-  shader.setUniformMatrix4f("projection", camera.projection);
-
-  shader.setUniformVec3f("cameraPosition", camera.position); 
-  shader.setUniformVec3f("lightPosition", light.position);
-  shader.setUniformVec4f("lightColor", light.color);
-
-  for (size_t i=0; i<meshes.size(); ++i)
-  {
-    // Load material data.
-    if (i==0 || materialIndices[i]!=materialIndices[i-1])
-      materials[materialIndices[i]].activate(shader);
-
-    // Render mesh.
-    meshes[i].draw();
-  }
-  glBindVertexArray(0);
-}

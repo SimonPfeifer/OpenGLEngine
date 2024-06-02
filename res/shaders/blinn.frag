@@ -3,7 +3,7 @@ out vec4 fragColor;
 
 in vec3 vertPosition;
 in vec3 vertNormal;
-in vec2 texCoord;
+in vec2 vertUV;
 
 uniform vec3 colorAmbient;
 uniform vec3 colorDiffuse;
@@ -13,8 +13,6 @@ uniform float specularStrength;
 uniform sampler2D textureDiffuse;
 uniform sampler2D textureSpecular;
 
-// TODO: all positions in clip space to make camera redundant.
-uniform vec3 cameraPosition;
 uniform vec3 lightPosition;
 uniform vec4 lightColor;
 
@@ -31,14 +29,14 @@ void main()
   float specular = 0.0;
   if (lambertian > 0.0)
   {
-    vec3 viewDir = normalize(cameraPosition - vertPosition);
+    vec3 viewDir = normalize(-vertPosition);
     vec3 halfDir = normalize(lightDir + viewDir);
     float specularAngle = max(dot(halfDir, normal), 0.0f);
     specular = pow(specularAngle, specularStrength);
   }
 
-  vec3 diffuseCol = texture(textureDiffuse, texCoord).xyz;
-  vec3 specularCol = texture(textureSpecular, texCoord).xyz;
+  vec3 diffuseCol = texture(textureDiffuse, vertUV).xyz;
+  vec3 specularCol = texture(textureSpecular, vertUV).xyz;
   
   // Quick hack! Force ambient color to be less than 1.0f and more
   // than a minimum.

@@ -131,8 +131,10 @@ int main(void)
   camera.position = glm::vec3(0.0f, 0.0f, -10.0f);
 
   // Models.
-  Model model;
-  model.loadModel("D:\\Documents\\Cpp\\OpenGLEngine\\res\\backpack\\backpack.obj");
+  const char* backpackPath = "D:\\Documents\\Cpp\\OpenGLEngine\\res\\backpack\\backpack.obj";
+  Model model(backpackPath);
+  model.rotation.y = 180.0f;
+  model.scale = glm::vec3(1.5f);
   
   // Shaders.
   Shader shaderBlinn("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\blinn.vert",
@@ -167,8 +169,12 @@ int main(void)
     camera.updateView();
 
     // Update lights.
+    light.position.x = 15.0f * sin(glfwGetTime());
+    light.position.z = 15.0f * cos(glfwGetTime());
+    light.update(camera);
 
     // Update objects.
+    model.update();
 
     // Start rendering objects.
     // Clear buffers and set background colour.
