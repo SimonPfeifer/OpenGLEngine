@@ -10,15 +10,20 @@
 class Material
 {
 public:
+  Material();
+
+  // Database ID.
+  unsigned int id;
+
+  glm::vec3 colorAmbient;
   glm::vec3 colorDiffuse;
   glm::vec3 colorSpecular;
   float specularStrength;
-  glm::vec3 colorAmbient;
 
   Texture textureDiffuse;
   Texture textureSpecular;
 
-  void activate(Shader& shader);
+  void activate(Shader& shader) const;
   
 private:
 

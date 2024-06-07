@@ -1,6 +1,16 @@
 #include "Material.h"
 
-void Material::activate(Shader& shader)
+Material::Material()
+{
+  id = 0;
+
+  colorAmbient = glm::vec3(0.0f);
+  colorDiffuse = glm::vec3(0.0f);
+  colorSpecular = glm::vec3(0.0f);
+  specularStrength = 0.0f;
+}
+
+void Material::activate(Shader& shader) const
 {
   shader.use();
 

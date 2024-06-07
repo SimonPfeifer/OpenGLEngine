@@ -1,7 +1,12 @@
 #include "Mesh.h"
 
+Mesh::Mesh()
+{
+  id = 0;
+  nIndices = 0;
+}
 
-Mesh::Mesh(std::vector<Vertex> vertices, std::vector<int> indices)
+Mesh::Mesh(std::vector<Vertex> vertices, std::vector<int> indices) : Mesh()
 {
   nIndices = indices.size();
 
@@ -30,10 +35,4 @@ Mesh::Mesh(std::vector<Vertex> vertices, std::vector<int> indices)
   glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
 
   glBindVertexArray(0);
-}
-
-void Mesh::draw()
-{
-  glBindVertexArray(vao);
-  glDrawElements(GL_TRIANGLES, nIndices, GL_UNSIGNED_INT, 0);
 }

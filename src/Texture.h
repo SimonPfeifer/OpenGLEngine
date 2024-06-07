@@ -14,11 +14,11 @@ public:
 	Texture();
   Texture(const char* filepath);
 
-  void bind(const int textureSlot);
+  void bind(const int textureSlot) const;
 	bool loadTextureData(const char* filepath);
   bool loadTextureData(std::string filepath);
 
-  GLuint getId() {return textureId;}
+  GLuint getId() const {return textureId;}
 
 private:
 	GLuint textureId;

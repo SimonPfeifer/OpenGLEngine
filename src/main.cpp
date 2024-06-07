@@ -1,9 +1,9 @@
-#include "AssetBox.h"
 #include "Camera.h"
-#include "LightBox.h"
-#include "Model.h"
+#include "Light.h"
 #include "Shader.h"
 #include "Texture.h"
+
+#include "Scene.h"
 
 #include <GLFW/glfw3.h>
 #include <glad/glad.h>
@@ -124,30 +124,32 @@ int main(void)
   // Set OpenGL rendering mode.
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-  // Camera.
-  double cursorPosX, cursorPosY;
-  glfwGetCursorPos(window, &cursorPosX, &cursorPosY);
-  Camera camera(window, (float)cursorPosX, (float)cursorPosY);
-  camera.position = glm::vec3(0.0f, 0.0f, -10.0f);
-
-  // Models.
-  const char* backpackPath = "D:\\Documents\\Cpp\\OpenGLEngine\\res\\backpack\\backpack.obj";
-  Model model(backpackPath);
-  model.rotation.y = 180.0f;
-  model.scale = glm::vec3(1.5f);
-  
   // Shaders.
   Shader shaderBlinn("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\blinn.vert",
                      "D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\blinn.frag");
   
-  Shader shaderLight("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\light.vert",
-                     "D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\light.frag");
-  
+  // Build the scene.
+  Scene scene;
+
+  // Camera.
+  double cursorPosX, cursorPosY;
+  glfwGetCursorPos(window, &cursorPosX, &cursorPosY);
+  scene.camera.position = glm::vec3(0.0f, 0.0f, -10.0f);
+
+  // Fixes the camera jump when starting up by setting the curser positions
+  // without moving the camera.
+  scene.camera.applyMouseInput((float)cursorPosX, (float)cursorPosY, true);
+
+  // Models.
+  const char* backpackPath = "D:\\Documents\\Cpp\\OpenGLEngine\\res\\backpack\\backpack.obj";
+  scene.loadModel(backpackPath);
+
   // Lights.
-  LightBox light;
-  light.position = glm::vec3(0.0f, 0.0f, 20.0f);
-  light.color = glm::vec4(1.0f, 1.0f, 1.0f, 200.0f);
-  light.shader = shaderLight;
+  Light pointLight;
+  pointLight.position = glm::vec3(0.0f, 0.0f, 20.0f);
+  pointLight.color = glm::vec3(1.0f, 1.0f, 1.0f);
+  pointLight.intensity = 200.0f;
+  scene.lights.push_back(pointLight);
 
   // Set timers.
   glfwSetTime(0.0f);
@@ -162,30 +164,68 @@ int main(void)
     lastTimeFrame = glfwGetTime();
 
     // Detect and manage input.
-    processInput(window, camera, deltaTime);
+    processInput(window, scene.camera, deltaTime);
 
     // Update state of objects.
     // Update camera.
-    camera.updateView();
+    scene.camera.updateView();
 
     // Update lights.
-    light.position.x = 15.0f * sin(glfwGetTime());
-    light.position.z = 15.0f * cos(glfwGetTime());
-    light.update(camera);
+    scene.lights[0].position.x = 15.0f * sin(glfwGetTime());
+    scene.lights[0].position.z = 15.0f * cos(glfwGetTime());
+    for (Light& light : scene.lights)
+    {
+      light.update(scene.camera);
+    }
 
     // Update objects.
-    model.update();
 
-    // Start rendering objects.
+
+    // Start rendering.
     // Clear buffers and set background colour.
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
 
-    // Render the lights.    
-    light.render(camera);
+    // Render the scene.
+    Shader& shader = shaderBlinn;
+    shader.setUniformMatrix4f("projection", scene.camera.projection);
 
-    // Render the objects.
-    model.render(camera, light, shaderBlinn);
+    for (const Instance& instance : scene.instances)
+    {
+      const Mesh& mesh = scene.meshes.get(instance.meshID);
+      const Material& material = scene.materials.get(instance.materialID);
+
+      // Set Shader info.
+      shader.use();
+      
+      // Materials.
+      // TODO: Fixed shader layout should make passing the shader unnecessary.
+      material.activate(shader);
+      
+      // Setup vertex data.
+      glBindVertexArray(mesh.vao);
+
+      for (const Light& light : scene.lights)
+      {
+        // Lights.
+        shader.setUniformVec3f("lightPosition", light.getPositionView());
+        shader.setUniformVec3f("lightColor", light.color);
+        shader.setUniformFloat("lightIntensity", light.intensity);
+
+        for (const unsigned int transformID : instance.transformIDs)        {
+
+        // MVP matrices.
+        // TODO: This should be replaced by instance drawing.
+        Transform transform = scene.transforms.get(transformID);
+        shader.setUniformMatrix4f("modelView", scene.camera.view *
+                                                transform.getModelTransform());
+
+        // Draw.
+        glDrawElements(GL_TRIANGLES, mesh.nIndices, GL_UNSIGNED_INT, 0);
+        }
+      }
+    }
+    glBindVertexArray(0);
 
     // Swap front and back buffers.
     glfwSwapBuffers(window);

@@ -16,7 +16,7 @@ Texture::Texture(const char* filepath) : Texture()
 }
 
 
-void Texture::bind(const int textureSlot)
+void Texture::bind(const int textureSlot) const
 {
   glActiveTexture(GL_TEXTURE0 + textureSlot);
   glBindTexture(GL_TEXTURE_2D, textureId);

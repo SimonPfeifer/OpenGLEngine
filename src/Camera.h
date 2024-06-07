@@ -8,18 +8,30 @@
 class Camera
 {
 public:
-	GLFWwindow* window;
+	Camera();
+  Camera(float fov, float aspectRatio, float zNear, float zFar, bool useOrtho);
 
+  // World position of the camera.
+	glm::vec3 position;
+
+  // The view and projection matrix.
+	glm::mat4 view;
+  glm::mat4 projection;
+
+	void setProjection(float fov, float aspectRatio, float zNear, float zFar, bool useOrtho);
+
+  void applyKeybordInput(int keybordInput, float deltaTime);
+  void applyMouseInput(float cursorPosX, float cursorPosY, bool paused);
+
+  void updateView();
+
+private:
   // Projection quantities.
 	float fov;
 	float aspectRatio;
 	float zNear;
 	float zFar;
 	bool useOrthographic;
-  glm::mat4 projection;
-
-  // World position of the camera.
-	glm::vec3 position;
 
   // Vectors tracking the wold coordinate frame. frontDirection is the
   // dirction the camera is facing.
@@ -32,10 +44,6 @@ public:
   float pitch;
   float roll;
 
-  // The view matrix.
-	glm::mat4 view;
-  
-private:
   // Screen space cursor positions of the last frame.
   float lastCursorPosX;
   float lastCursorPosY;
@@ -50,19 +58,7 @@ private:
   // respectively.
   float sensitivity;
 	float movementSpeed;
-	
-public:
-	Camera(GLFWwindow* window, float cursorX, float cursorY);
-	~Camera();
 
-  void applyKeybordInput(int keybordInput, float deltaTime);
-  void applyMouseInput(float cursorPosX, float cursorPosY, bool paused);
-
-  void updateView();
-
-	void setProjection(float fov, float aspectRatio, float zNear, float zFar, bool useOrtho);
 	void applyProjection();
-
-private:
   void updateDirections();
 };

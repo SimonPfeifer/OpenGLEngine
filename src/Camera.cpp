@@ -1,13 +1,10 @@
 #include "Camera.h"
 
-#include <math.h>
 #include <iostream>
 
-
-Camera::Camera(GLFWwindow* window, float cursorX, float cursorY)
+Camera::Camera()
 {
-  // Public variables.
-	this->window = window;
+  position = glm::vec3(0.0f);
 
 	fov = 45.0f;
 	aspectRatio = 16.0f / 9.0f;
@@ -15,9 +12,8 @@ Camera::Camera(GLFWwindow* window, float cursorX, float cursorY)
 	zFar = 500.0f;
   useOrthographic = false;
   projection = glm::mat4(1.0f);
+	applyProjection();
 	
-  position = glm::vec3(0.0f);
-
   frontDirection = glm::vec3(0.0f);
   rightDirection = glm::vec3(0.0f);
   upDirection = glm::vec3(0.0f);
@@ -26,25 +22,23 @@ Camera::Camera(GLFWwindow* window, float cursorX, float cursorY)
   yaw = 0.0f;
   pitch = 0.0f;
   roll = 0.0f;
+  updateDirections();
 
 	view = glm::mat4(1.0f);
+  updateView();
 	
-  // Private variables.
-  lastCursorPosX = cursorX;
-  lastCursorPosY = cursorY;
+  lastCursorPosX = 0.0f;
+  lastCursorPosY = 0.0f;
 
   maxPitchAngle = 80.0f;
 
   sensitivity = 0.08f;
   movementSpeed = 30.0f;
-
-	applyProjection();
-  updateDirections();
 }
 
-Camera::~Camera()
+Camera::Camera(float fov, float aspectRatio, float zNear, float zFar, bool useOrtho) : Camera()
 {
-
+  setProjection(fov, aspectRatio, zNear, zFar, useOrtho);
 }
 
 void Camera::applyKeybordInput(int keybordInput, float deltaTime)
@@ -105,6 +99,8 @@ void Camera::setProjection(float fov, float aspectRatio, float zNear, float zFar
 	this->zNear = zNear;
 	this->zFar = zFar;
 	this->useOrthographic = useOrtho;
+  
+  applyProjection();
 }
 
 void Camera::applyProjection()

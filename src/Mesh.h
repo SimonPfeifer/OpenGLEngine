@@ -15,13 +15,16 @@ struct Vertex
 class Mesh
 {
 public:
+  Mesh();
   Mesh(std::vector<Vertex> vertices, std::vector<int> indices);
+  
+  // Database ID.
+  unsigned int id;
 
-  void draw();
+  GLuint vao;
+  int nIndices;
 
 private:
-  GLuint vao;
   GLuint vbo;
   GLuint ebo;
-  int nIndices;
 };

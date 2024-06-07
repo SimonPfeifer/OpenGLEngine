@@ -14,7 +14,8 @@ uniform sampler2D textureDiffuse;
 uniform sampler2D textureSpecular;
 
 uniform vec3 lightPosition;
-uniform vec4 lightColor;
+uniform vec3 lightColor;
+uniform float lightIntensity;
 
 
 void main()
@@ -48,7 +49,7 @@ void main()
   }
 
   vec3 outColor = (ambient * diffuseCol) + 
-                  (lightColor.w / distanceSqaure) * lightColor.rgb *
+                  (lightIntensity / distanceSqaure) * lightColor *
                   (diffuseCol * lambertian  + specularCol * specular);
   fragColor = vec4(outColor, 1.0f);
 }

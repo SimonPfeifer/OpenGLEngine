@@ -1,31 +1,12 @@
-#include "Model.h"
-#include "Texture.h"
-
-#include <glm/glm.hpp>
+#include "Scene.h"
 
 #include <iostream>
 
 // These should be really be user defined per model import.
 #define ASSIMP_LOAD_FLAGS (aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices)
 
-Model::Model()
+bool Scene::loadModel(const char* filepath)
 {
-  scale = glm::vec3(1.0f);
-  position = glm::vec3(0.0f);
-  rotation = glm::vec3(0.0f);
-
-  model = glm::mat4(1.0f);
-}
-
-Model::Model(const char* filepath) : Model()
-{
-  loadModel(filepath);
-}
-
-bool Model::loadModel(const char* filepath)
-{
-  clear();
-
   Assimp::Importer importer;
   const aiScene* scene = importer.ReadFile(filepath, ASSIMP_LOAD_FLAGS);
 
@@ -43,68 +24,38 @@ bool Model::loadModel(const char* filepath)
   return success;
 }
 
-void Model::update()
+
+void Scene::clear()
 {
-  applyTransformations();
-}
-
-void Model::render(Camera& camera, Light& light, Shader& shader)
-{
-  // Load variables into shader.
-  shader.use();
-  shader.setUniformMatrix4f("modelView", camera.view * model);
-  shader.setUniformMatrix4f("projection", camera.projection);
-
-  shader.setUniformVec3f("cameraPosition", camera.position);
-  shader.setUniformVec3f("lightPosition", light.getPositionView());
-  shader.setUniformVec4f("lightColor", light.color);
-
-  for (size_t i=0; i<meshes.size(); ++i)
-  {
-    // Load material data.
-    if (i==0 || materialIndices[i]!=materialIndices[i-1])
-      materials[materialIndices[i]].activate(shader);
-
-    // Render mesh.
-    meshes[i].draw();
-  }
-  glBindVertexArray(0);
-}
-
-void Model::applyTransformations()
-{
-	model = glm::mat4(1.0f);
-	model = glm::translate(model, position);
-	model = glm::rotate(model, glm::radians(rotation.x), glm::vec3(1.0f, 0.0f, 0.0f));
-	model = glm::rotate(model, glm::radians(rotation.y), glm::vec3(0.0f, 1.0f, 0.0f));
-	model = glm::rotate(model, glm::radians(rotation.z), glm::vec3(0.0f, 0.0f, 1.0f));
-	model = glm::scale(model, scale);
-}
-
-void Model::clear()
-{
+  instances.clear();
   meshes.clear();
-  materialIndices.clear();
   materials.clear();
+  transforms.clear();
+  lights.clear();
 }
 
-bool Model::processScene(const aiScene* scene, const char* filepath)
+bool Scene::processScene(const aiScene* scene, const char* filepath)
 {
   bool success = true;
 
+  // Store the mesh and material IDs to match them for Instance creation.
+  std::vector<unsigned int> meshIDs;
+  std::vector<unsigned int> meshMaterialIndex;
+  std::vector<unsigned int> materialIDs;
+
   // Process the mesh data.
-  for (int i=0; i<scene->mNumMeshes; ++i)
+  for (unsigned int i=0; i<scene->mNumMeshes; ++i)
   {
     // Should include error checking for mesh loading.
-    loadMesh(scene->mMeshes[i]);
+    loadMesh(scene->mMeshes[i], meshIDs, meshMaterialIndex);
   }
 
   // Process the material data.
   if (scene->HasMaterials())
   {
-    for (int i=0; i<scene->mNumMaterials; ++i)
+    for (unsigned int i=0; i<scene->mNumMaterials; ++i)
     {
-      if (!loadMaterial(scene->mMaterials[i], filepath))
+      if (!loadMaterial(scene->mMaterials[i], filepath, materialIDs))
       {
         success = false;
         std::cerr << "ERROR::loadMaterial Could not load material with index: "
@@ -113,10 +64,26 @@ bool Model::processScene(const aiScene* scene, const char* filepath)
     }
   }
 
+  // Create instance with mesh, material and default transform.
+  assert((meshIDs.size() == meshMaterialIndex.size()) &&
+    "ERROR::processScene vector size mismatch");
+  for (unsigned int i=0; i<meshIDs.size(); ++i)
+  {
+    Instance instance;
+    instance.meshID = meshIDs[i];
+    instance.materialID = materialIDs[meshMaterialIndex[i]];
+
+    unsigned int transformID = transforms.add();
+    instance.transformIDs.push_back(transformID);
+
+    instances.push_back(instance);
+  }
+
   return success;
 }
 
-void Model::loadMesh(const aiMesh* aiMesh)
+void Scene::loadMesh(const aiMesh* aiMesh, std::vector<unsigned int>& meshIDs,
+                     std::vector<unsigned int>& meshMaterialIndex)
 {
   Vertex vertex;
   std::vector<Vertex> vertices;
@@ -143,18 +110,23 @@ void Model::loadMesh(const aiMesh* aiMesh)
   for (unsigned int i=0; i<aiMesh->mNumFaces; ++i)
   {
     aiFace face = aiMesh->mFaces[i];
-    assert(face.mNumIndices == 3);
+    assert((face.mNumIndices == 3) &&
+      "ERROR::loadMesh Number of face vertices is not 3");
 
     indices.push_back(face.mIndices[0]);
     indices.push_back(face.mIndices[1]);
     indices.push_back(face.mIndices[2]);
   }
 
-  meshes.push_back(Mesh(vertices, indices));
-  materialIndices.push_back(aiMesh->mMaterialIndex);
+  // Copy new mesh to database and save ID for later Instance creation.
+  unsigned int meshID = meshes.add();
+  meshes.get(meshID) = Mesh(vertices, indices);
+  meshIDs.push_back(meshID);
+  meshMaterialIndex.push_back(aiMesh->mMaterialIndex);
 }
 
-bool Model::loadMaterial(const aiMaterial* aimaterial, const char* filepath)
+bool Scene::loadMaterial(const aiMaterial* aimaterial, const char* filepath,
+                         std::vector<unsigned int>& materialIDs)
 {
   bool success = true;
 
@@ -224,17 +196,20 @@ bool Model::loadMaterial(const aiMaterial* aimaterial, const char* filepath)
   if (!loadMaterialTexture(aimaterial, aiTextureType_SPECULAR, directory, texture))
   {
     success = false;
-    std::cerr << "Model::loadMaterial "
+    std::cerr << "Scene::loadMaterial "
       << "Could not load texture type SPECULAR." << std::endl;
   }
   material.textureSpecular = texture;
 
-  materials.push_back(material);
+  // Copy new material to database and save ID for later Instance creation.
+  unsigned int materialID = materials.add();
+  materials.get(materialID) = material;
+  materialIDs.push_back(materialID);
 
   return success;
 }
 
-bool Model::loadMaterialTexture(const aiMaterial* aimaterial,
+bool Scene::loadMaterialTexture(const aiMaterial* aimaterial,
                                 enum aiTextureType textureType,
                                 std::string directory,
                                 Texture& outTexture)
