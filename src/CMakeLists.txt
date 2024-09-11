@@ -10,6 +10,7 @@ add_compile_options(-DGLFW_INCLUDE_NONE)
 add_executable(main 
   main.cpp
   Camera.cpp
+  FrameBuffer.cpp
   Material.cpp
   Mesh.cpp
   Scene.cpp

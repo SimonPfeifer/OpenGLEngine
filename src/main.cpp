@@ -1,4 +1,5 @@
 #include "Camera.h"
+#include "FrameBuffer.h"
 #include "Light.h"
 #include "Shader.h"
 #include "Texture.h"
@@ -75,6 +76,7 @@ int main(void)
 {
   GLFWwindow* window;
 
+  // TODO: All of the initialisation should be in a function.
   // Initialize the GLFW library.
   if (!glfwInit())
   {
@@ -123,6 +125,8 @@ int main(void)
 
   // Set OpenGL rendering mode.
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+  // All the init code until here.
 
   // Shaders.
   Shader shaderBlinn("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\blinn.vert",
@@ -186,26 +190,19 @@ int main(void)
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
   // Generate framebuffer to render to.
-  unsigned int depthMapFBO;
-  glGenFramebuffers(1, &depthMapFBO);
+  FrameBuffer depthMapFBO;
 
   // Bind texture to framebuffer.
-  glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
-                         depthMapTexture, 0);
+  depthMapFBO.bindTexture2D(GL_DEPTH_ATTACHMENT, depthMapTexture);
 
   // Set the colour buffer to GL_NONE.
-  glDrawBuffer(GL_NONE);
-  glReadBuffer(GL_NONE);
+  depthMapFBO.setDrawBuffer(GL_NONE);
+  depthMapFBO.setReadBuffer(GL_NONE);
+
 
   // Check if the framebuffer was setup correctly.
-  GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-  if (status != GL_FRAMEBUFFER_COMPLETE)
-  {
-    std::cerr << "MAIN::DepthBuffer Shadow pass framebuffer check failed: " <<
-    status << std::endl;
-  }
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  depthMapFBO.checkStatus();
+
 
   // Generate quad that covers screen to render textures to.
   unsigned int screenQuadVAO;
@@ -344,7 +341,7 @@ int main(void)
     // glViewport(0, 0, WIDTH, HEIGHT);
     // glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, depthMapWidth, depthMapHeight);
-    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO.getId());
     glClear(GL_DEPTH_BUFFER_BIT);
     // glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
 
