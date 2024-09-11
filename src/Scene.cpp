@@ -74,6 +74,7 @@ bool Scene::processScene(const aiScene* scene, const char* filepath)
     instance.materialID = materialIDs[meshMaterialIndex[i]];
 
     unsigned int transformID = transforms.add();
+    transforms.get(transformID).scale = glm::vec3(0.1f);
     instance.transformIDs.push_back(transformID);
 
     instances.push_back(instance);

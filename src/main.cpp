@@ -127,6 +127,10 @@ int main(void)
   // Shaders.
   Shader shaderBlinn("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\blinn.vert",
                      "D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\blinn.frag");
+  Shader shaderDepth("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\depth.vert",
+                     "D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\depth.frag");
+  Shader shaderScreen("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\screenTexture.vert",
+                      "D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\screenTexture.frag");
   
   // Build the scene.
   Scene scene;
@@ -141,15 +145,126 @@ int main(void)
   scene.camera.applyMouseInput((float)cursorPosX, (float)cursorPosY, true);
 
   // Models.
-  const char* backpackPath = "D:\\Documents\\Cpp\\OpenGLEngine\\res\\backpack\\backpack.obj";
-  scene.loadModel(backpackPath);
+  const char* sponza = "D:\\Documents\\Cpp\\glTF-Sample-Assets\\Models\\Sponza\\glTF\\Sponza.gltf";
+  scene.loadModel(sponza);
 
   // Lights.
-  Light pointLight;
-  pointLight.position = glm::vec3(0.0f, 0.0f, 20.0f);
-  pointLight.color = glm::vec3(1.0f, 1.0f, 1.0f);
-  pointLight.intensity = 200.0f;
-  scene.lights.push_back(pointLight);
+  Light sun;
+  sun.type = LightType::directional;
+  sun.direction = glm::normalize(glm::vec3(0.0f, -1.0f, 0.5f));
+  sun.color = glm::vec3(1.0f, 0.8f, 0.4f);
+  sun.intensity = 80.0f;
+  scene.lights.push_back(sun);
+
+  Light spotLight;
+  spotLight.type = LightType::spot;
+  spotLight.position = glm::vec3(-100.0f, 20.0f, 0.0f);
+  spotLight.color = glm::vec3(1.0f, 1.0f, 1.0f);
+  spotLight.intensity = 200.0f;
+  spotLight.spotlightAngle = 50.0f;
+  scene.lights.push_back(spotLight);
+  for (int i=0; i<2; ++i)
+  {
+    spotLight.position.x += 100.0f;
+    scene.lights.push_back(spotLight);
+  }
+
+  // Shadow pass framebuffer and texture.
+  // Generate texture buffer to store shadow pass depth data.
+  const unsigned int depthMapWidth = 4096;
+  const unsigned int depthMapHeight = 4096;
+
+  unsigned int depthMapTexture;
+  glGenTextures(1, &depthMapTexture);
+  glBindTexture(GL_TEXTURE_2D, depthMapTexture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
+               depthMapWidth, depthMapHeight, 0, GL_DEPTH_COMPONENT,
+               GL_FLOAT, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+  // Generate framebuffer to render to.
+  unsigned int depthMapFBO;
+  glGenFramebuffers(1, &depthMapFBO);
+
+  // Bind texture to framebuffer.
+  glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
+                         depthMapTexture, 0);
+
+  // Set the colour buffer to GL_NONE.
+  glDrawBuffer(GL_NONE);
+  glReadBuffer(GL_NONE);
+
+  // Check if the framebuffer was setup correctly.
+  GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+  if (status != GL_FRAMEBUFFER_COMPLETE)
+  {
+    std::cerr << "MAIN::DepthBuffer Shadow pass framebuffer check failed: " <<
+    status << std::endl;
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  // Generate quad that covers screen to render textures to.
+  unsigned int screenQuadVAO;
+  unsigned int screenQuadVBO;
+  unsigned int screenQuadEBO;
+
+  glGenVertexArrays(1, &screenQuadVAO);
+  glGenBuffers(1, &screenQuadVBO);
+  glGenBuffers(1, &screenQuadEBO);
+  
+  glBindVertexArray(screenQuadVAO);
+
+  std::vector<Vertex> screenQuadVertices;
+  float quadMin = 0.5f;
+  float quadMax = 1.0f;
+  screenQuadVertices.push_back(Vertex(glm::vec3(quadMin, quadMin, 0.0f),
+                                      glm::vec3(0.0f, 0.0f, 0.0f),
+                                      glm::vec2(0.0f, 0.0f)));
+  
+  screenQuadVertices.push_back(Vertex(glm::vec3(quadMax, quadMin, 0.0f),
+                                      glm::vec3(0.0f, 0.0f, 0.0f),
+                                      glm::vec2(1.0f, 0.0f)));
+
+  screenQuadVertices.push_back(Vertex(glm::vec3(quadMin, quadMax, 0.0f),
+                                      glm::vec3(0.0f, 0.0f, 0.0f),
+                                      glm::vec2(0.0f, 1.0f)));
+
+  screenQuadVertices.push_back(Vertex(glm::vec3(quadMax, quadMax, 0.0f),
+                                      glm::vec3(0.0f, 0.0f, 0.0f),
+                                      glm::vec2(1.0f, 1.0f)));
+
+  glBindBuffer(GL_ARRAY_BUFFER, screenQuadVBO);
+  glBufferData(GL_ARRAY_BUFFER, screenQuadVertices.size() * sizeof(Vertex),
+               &screenQuadVertices[0], GL_STATIC_DRAW);
+
+  std::vector<int> screenQuadIndices;
+  screenQuadIndices.push_back(0);
+  screenQuadIndices.push_back(1);
+  screenQuadIndices.push_back(2);
+  screenQuadIndices.push_back(2);
+  screenQuadIndices.push_back(1);
+  screenQuadIndices.push_back(3);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, screenQuadEBO);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, screenQuadIndices.size() * sizeof(int),
+               &screenQuadIndices[0], GL_STATIC_DRAW);
+
+	// Positions.
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
+	// Normals.
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+  // Texture coordinates.
+  glEnableVertexAttribArray(2);
+  glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
+
+  glBindVertexArray(0);
+
 
   // Set timers.
   glfwSetTime(0.0f);
@@ -171,32 +286,120 @@ int main(void)
     scene.camera.updateView();
 
     // Update lights.
-    scene.lights[0].position.x = 15.0f * sin(glfwGetTime());
-    scene.lights[0].position.z = 15.0f * cos(glfwGetTime());
-    for (Light& light : scene.lights)
-    {
-      light.update(scene.camera);
-    }
 
     // Update objects.
 
 
+    // Pre-render setup.
+    // Build UBO for lights
+    int numLights = static_cast<int>(scene.lights.size());
+
+    // Store all of the lights in a UBO
+    unsigned int lightsUBO;
+    glGenBuffers(1, &lightsUBO);
+    glBindBuffer(GL_UNIFORM_BUFFER, lightsUBO);
+
+    // Link buffer to shader block, the uniform binding point.
+    unsigned int blockIndex = glGetUniformBlockIndex(shaderBlinn.shaderId, "LightsBlock");
+    glUniformBlockBinding(shaderBlinn.shaderId, blockIndex, 0);
+
+    // Set size of buffer.
+    int numLightsByteSize = 16;
+    int lightStructByteSize = 64;
+    int bufferByteSize = numLightsByteSize + lightStructByteSize * numLights;
+    glBufferData(GL_UNIFORM_BUFFER, bufferByteSize, NULL, GL_STATIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0); 
+    
+    // Define the range of the buffer that links to a uniform binding point.
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, lightsUBO, 0, bufferByteSize);
+
+    // Fill buffer with data.
+    glBindBuffer(GL_UNIFORM_BUFFER, lightsUBO);
+    glBufferSubData(GL_UNIFORM_BUFFER, 0,
+                    numLightsByteSize, &numLights);
+    glBufferSubData(GL_UNIFORM_BUFFER, numLightsByteSize, 
+                    lightStructByteSize * numLights, &scene.lights[0]);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0); 
+    glBindBuffer(GL_UNIFORM_BUFFER, lightsUBO);
+
     // Start rendering.
+    // glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // Shadow pass.
+    float nearPlane = 0.1f;
+    float farPlane = 1000.0f;
+    float viewSize = 200.0f;
+    glm::mat4 sunProjection = glm::ortho(-viewSize, viewSize, -viewSize, viewSize, nearPlane, farPlane);
+    glm::mat4 sunView = glm::lookAt(-sun.direction*250.0f,
+                                    glm::vec3(0.0f),
+                                    glm::vec3(0.0f, 1.0f,  0.0f));
+
+    // Configure shader and matrices.
+    shaderDepth.use();
+    shaderDepth.setUniformMatrix4f("view", sunView);//scene.camera.view);
+    shaderDepth.setUniformMatrix4f("projection", sunProjection);
+
+    // Set viewport and framebuffer.
+    // glViewport(0, 0, WIDTH, HEIGHT);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, depthMapWidth, depthMapHeight);
+    glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    // glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
+
+    // Render the scene shadows.
+    for (const Instance& instance : scene.instances)
+    {
+      // Setup vertex data.
+      const Mesh& mesh = scene.meshes.get(instance.meshID);
+      glBindVertexArray(mesh.vao);
+
+      for (const unsigned int transformID : instance.transformIDs)
+      {
+        // MVP matrices.
+        // TODO: This should be replaced by instance drawing.
+        Transform transform = scene.transforms.get(transformID);
+        shaderDepth.setUniformMatrix4f("model", transform.getModelTransform());
+
+        // Draw.
+        glDrawElements(GL_TRIANGLES, mesh.nIndices, GL_UNSIGNED_INT, 0);
+      }
+    }
+    glBindVertexArray(0);
+
+
+    // Main render pass.
+    // Rebind default framebuffer and screen viewport.
+    glViewport(0, 0, WIDTH, HEIGHT);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
     // Clear buffers and set background colour.
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.3f, 0.3f, 0.3f, 1.0f);
 
     // Render the scene.
+    // Set Shader info.
     Shader& shader = shaderBlinn;
+    shader.use();
+
+    // Set matrices.
     shader.setUniformMatrix4f("projection", scene.camera.projection);
+    shader.setUniformMatrix4f("view", scene.camera.view);
+
+    // Light matrices and depth texture for shadow mapping.
+    shader.setUniformMatrix4f("lightView", sunView);
+    shader.setUniformMatrix4f("lightProjection", sunProjection);
+
+    shader.setUniformInt("textureDepth", 2);
+    glActiveTexture(GL_TEXTURE0 + 2);
+    glBindTexture(GL_TEXTURE_2D, depthMapTexture);
 
     for (const Instance& instance : scene.instances)
     {
       const Mesh& mesh = scene.meshes.get(instance.meshID);
       const Material& material = scene.materials.get(instance.materialID);
 
-      // Set Shader info.
-      shader.use();
       
       // Materials.
       // TODO: Fixed shader layout should make passing the shader unnecessary.
@@ -205,27 +408,49 @@ int main(void)
       // Setup vertex data.
       glBindVertexArray(mesh.vao);
 
-      for (const Light& light : scene.lights)
+      for (const unsigned int transformID : instance.transformIDs)
       {
-        // Lights.
-        shader.setUniformVec3f("lightPosition", light.getPositionView());
-        shader.setUniformVec3f("lightColor", light.color);
-        shader.setUniformFloat("lightIntensity", light.intensity);
-
-        for (const unsigned int transformID : instance.transformIDs)        {
-
         // MVP matrices.
         // TODO: This should be replaced by instance drawing.
         Transform transform = scene.transforms.get(transformID);
         shader.setUniformMatrix4f("modelView", scene.camera.view *
-                                                transform.getModelTransform());
+                                              transform.getModelTransform());
+        shader.setUniformMatrix4f("model", transform.getModelTransform());
+
 
         // Draw.
         glDrawElements(GL_TRIANGLES, mesh.nIndices, GL_UNSIGNED_INT, 0);
-        }
       }
     }
     glBindVertexArray(0);
+
+
+    // // Check the value of the depth map per pixel
+    // glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+    // float depthPixel[1];
+    // int pixelX = depthMapWidth/2;
+    // int pixelY = depthMapHeight/2;
+    // glReadPixels(pixelX, pixelY, 1, 1, GL_DEPTH_COMPONENT,
+    //               GL_FLOAT, &depthPixel);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // Render depth buffer
+    glViewport(0, 0, WIDTH, HEIGHT);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // glClearColor(0.0f, 1.0f, 0.0f, 1.0f); 
+    
+    // Configure shader and matrices.
+    shaderScreen.use();
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, depthMapTexture); //scene.materials.get(0).textureDiffuse.getId());
+
+    glDisable(GL_DEPTH_TEST);
+    glBindVertexArray(screenQuadVAO);
+    glDrawElements(GL_TRIANGLES, screenQuadIndices.size(), GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
+    glEnable(GL_DEPTH_TEST);
 
     // Swap front and back buffers.
     glfwSwapBuffers(window);
