@@ -8,6 +8,11 @@ Mesh::Mesh()
 
 Mesh::Mesh(std::vector<Vertex> vertices, std::vector<int> indices) : Mesh()
 {
+  loadVertexData(vertices, indices);
+}
+
+void Mesh::loadVertexData(std::vector<Vertex> vertices, std::vector<int> indices)
+{
   nIndices = indices.size();
 
   glGenVertexArrays(1, &vao);

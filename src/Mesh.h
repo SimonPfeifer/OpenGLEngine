@@ -23,6 +23,7 @@ public:
 
   GLuint vao;
   int nIndices;
+  void loadVertexData(std::vector<Vertex> vertices, std::vector<int> indices);
 
 private:
   GLuint vbo;

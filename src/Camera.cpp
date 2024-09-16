@@ -8,8 +8,8 @@ Camera::Camera()
 
 	fov = 45.0f;
 	aspectRatio = 16.0f / 9.0f;
-	zNear = 0.1f;
-	zFar = 500.0f;
+	zNear = 1.0f;
+	zFar = 300.0f;
   useOrthographic = false;
   projection = glm::mat4(1.0f);
 	applyProjection();

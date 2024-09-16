@@ -1,6 +1,7 @@
 #include "Camera.h"
 #include "FrameBuffer.h"
 #include "Light.h"
+#include "ScreenQuad.h"
 #include "Shader.h"
 #include "Texture.h"
 
@@ -175,93 +176,31 @@ int main(void)
 
   // Shadow pass framebuffer and texture.
   // Generate texture buffer to store shadow pass depth data.
-  const unsigned int depthMapWidth = 4096;
-  const unsigned int depthMapHeight = 4096;
+  const unsigned int depthMapWidth =  4096 * 4;
+  const unsigned int depthMapHeight = 4096 * 4;
 
-  unsigned int depthMapTexture;
-  glGenTextures(1, &depthMapTexture);
-  glBindTexture(GL_TEXTURE_2D, depthMapTexture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, 
-               depthMapWidth, depthMapHeight, 0, GL_DEPTH_COMPONENT,
-               GL_FLOAT, NULL);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  Texture depthMapTexture;
+  depthMapTexture.emptyTexture2D(depthMapWidth, depthMapHeight,
+                                 GL_DEPTH_COMPONENT, GL_FLOAT);
+  depthMapTexture.minMagFilter(GL_NEAREST, GL_NEAREST);
+  depthMapTexture.wrapMode(GL_REPEAT, GL_REPEAT);
 
   // Generate framebuffer to render to.
   FrameBuffer depthMapFBO;
 
   // Bind texture to framebuffer.
-  depthMapFBO.bindTexture2D(GL_DEPTH_ATTACHMENT, depthMapTexture);
+  depthMapFBO.bindTexture2D(GL_DEPTH_ATTACHMENT, depthMapTexture.getId());
 
   // Set the colour buffer to GL_NONE.
   depthMapFBO.setDrawBuffer(GL_NONE);
   depthMapFBO.setReadBuffer(GL_NONE);
 
-
   // Check if the framebuffer was setup correctly.
   depthMapFBO.checkStatus();
 
-
   // Generate quad that covers screen to render textures to.
-  unsigned int screenQuadVAO;
-  unsigned int screenQuadVBO;
-  unsigned int screenQuadEBO;
-
-  glGenVertexArrays(1, &screenQuadVAO);
-  glGenBuffers(1, &screenQuadVBO);
-  glGenBuffers(1, &screenQuadEBO);
-  
-  glBindVertexArray(screenQuadVAO);
-
-  std::vector<Vertex> screenQuadVertices;
-  float quadMin = 0.5f;
-  float quadMax = 1.0f;
-  screenQuadVertices.push_back(Vertex(glm::vec3(quadMin, quadMin, 0.0f),
-                                      glm::vec3(0.0f, 0.0f, 0.0f),
-                                      glm::vec2(0.0f, 0.0f)));
-  
-  screenQuadVertices.push_back(Vertex(glm::vec3(quadMax, quadMin, 0.0f),
-                                      glm::vec3(0.0f, 0.0f, 0.0f),
-                                      glm::vec2(1.0f, 0.0f)));
-
-  screenQuadVertices.push_back(Vertex(glm::vec3(quadMin, quadMax, 0.0f),
-                                      glm::vec3(0.0f, 0.0f, 0.0f),
-                                      glm::vec2(0.0f, 1.0f)));
-
-  screenQuadVertices.push_back(Vertex(glm::vec3(quadMax, quadMax, 0.0f),
-                                      glm::vec3(0.0f, 0.0f, 0.0f),
-                                      glm::vec2(1.0f, 1.0f)));
-
-  glBindBuffer(GL_ARRAY_BUFFER, screenQuadVBO);
-  glBufferData(GL_ARRAY_BUFFER, screenQuadVertices.size() * sizeof(Vertex),
-               &screenQuadVertices[0], GL_STATIC_DRAW);
-
-  std::vector<int> screenQuadIndices;
-  screenQuadIndices.push_back(0);
-  screenQuadIndices.push_back(1);
-  screenQuadIndices.push_back(2);
-  screenQuadIndices.push_back(2);
-  screenQuadIndices.push_back(1);
-  screenQuadIndices.push_back(3);
-
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, screenQuadEBO);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, screenQuadIndices.size() * sizeof(int),
-               &screenQuadIndices[0], GL_STATIC_DRAW);
-
-	// Positions.
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);
-	// Normals.
-  glEnableVertexAttribArray(1);
-  glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
-  // Texture coordinates.
-  glEnableVertexAttribArray(2);
-  glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
-
-  glBindVertexArray(0);
-
+  ScreenQuad screenQuad;
+  screenQuad.generate(0.5f, 1.0f, 0.5f, 1.0f);
 
   // Set timers.
   glfwSetTime(0.0f);
@@ -324,13 +263,95 @@ int main(void)
     // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Shadow pass.
-    float nearPlane = 0.1f;
-    float farPlane = 1000.0f;
-    float viewSize = 200.0f;
-    glm::mat4 sunProjection = glm::ortho(-viewSize, viewSize, -viewSize, viewSize, nearPlane, farPlane);
-    glm::mat4 sunView = glm::lookAt(-sun.direction*250.0f,
-                                    glm::vec3(0.0f),
-                                    glm::vec3(0.0f, 1.0f,  0.0f));
+    // Calculate the 8 corners of the camera frustum in world space.
+    float sunHeight = 1000.0f;
+
+    glm::vec4 frustumCorners[8] = 
+    {
+      glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f), // near bottom left
+      glm::vec4( 1.0f, -1.0f, -1.0f, 1.0f), // near bottom right
+      glm::vec4(-1.0f,  1.0f, -1.0f, 1.0f), // near top left
+      glm::vec4( 1.0f,  1.0f, -1.0f, 1.0f), // near top right
+
+      glm::vec4(-1.0f, -1.0f,  1.0f, 1.0f), // and the far equivalent
+      glm::vec4( 1.0f, -1.0f,  1.0f, 1.0f),
+      glm::vec4(-1.0f,  1.0f,  1.0f, 1.0f),
+      glm::vec4( 1.0f,  1.0f,  1.0f, 1.0f),
+    };
+
+    glm::mat4 inverseCameraMV= glm::inverse(scene.camera.projection*scene.camera.view);
+    for (int i=0; i<8; ++i)
+    {
+      glm::vec4 corner = inverseCameraMV * frustumCorners[i];
+      corner = corner / corner.w;
+      frustumCorners[i] = corner;
+    }
+
+    // Calculate the sun projection bounds.
+    glm::vec3 center = glm::vec3(0.0f);
+    for (const auto& v : frustumCorners)
+    {
+        center += glm::vec3(v);
+    }
+    center /= 8.0f; // number of corners
+
+    // Find the maximum size sphere required to fit the entire camera, 
+    // frustum centered on the camera frustum. This allows the sun
+    // projection to be of constant size independent of camera rotation.
+    float radius = 0.0f;
+    for (int i=0; i<8; ++i)
+    {
+      float cornerDistance = glm::length(center - 
+                                         glm::vec3(frustumCorners[i]));
+      radius = std::max(radius, cornerDistance);
+    }
+    glm::vec3 maxBounds = glm::vec3(radius, radius, radius);
+    glm::vec3 minBounds = -maxBounds;
+
+    // Add the sun height to the z bounds to add more depth "behind"
+    // the projection. This allow for shadow casters to exist outside the
+    // camera frustum up to that distance.
+    maxBounds.z += sunHeight;
+    glm::vec3 extentBounds = maxBounds - minBounds;
+
+    // Put sun at maximum bound in the z direction.
+    glm::mat4 sunView = glm::lookAt(center - sun.direction*maxBounds.z,
+                                    center,
+                                    glm::vec3(0.0f, 1.0f, 0.0f));
+
+    // Generate the sun projection matrix from the bounding box bounds.
+    glm::mat4 sunProjection = glm::ortho(minBounds.x, maxBounds.x,
+                                         minBounds.y, maxBounds.y,
+                                         0.0f, extentBounds.z);
+
+
+    // Offset of the sun projection to keep the shadow map moving in
+    // texel increments. Does not affect camera rotation.
+    // Project the world origin into sun NDC.
+    glm::mat4 sunViewProjection = sunProjection * sunView;
+    glm::vec4 origin = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    origin = sunViewProjection * origin;
+
+    // Convert NDC into texel space. NDC covers [-1,1], so a unit [0,1]
+    // covers half the shadow map size.
+    origin.x *=  depthMapWidth / 2.0f;
+    origin.y *=  depthMapHeight / 2.0f;
+
+    // The offset is the fractional part of the textel coordinates.
+    // Warning: as the camera moves, the sun projection bounds change 
+    // slightly, bouncing between texel coords causing slight shadow
+    // flickering (rounding error?).
+    glm::vec4 originRounded = glm::round(origin);
+    glm::vec4 offset = origin - originRounded;
+
+    // Convert back to NDC. Only interested in X and Y direction.
+    offset.x *= 2.0f / depthMapWidth;
+    offset.y *= 2.0f / depthMapHeight;
+    offset.z = 0.0f;
+    offset.w = 0.0f;
+
+    sunProjection[3] -= offset;
+
 
     // Configure shader and matrices.
     shaderDepth.use();
@@ -390,7 +411,7 @@ int main(void)
 
     shader.setUniformInt("textureDepth", 2);
     glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_2D, depthMapTexture);
+    glBindTexture(GL_TEXTURE_2D, depthMapTexture.getId());
 
     for (const Instance& instance : scene.instances)
     {
@@ -421,16 +442,6 @@ int main(void)
     }
     glBindVertexArray(0);
 
-
-    // // Check the value of the depth map per pixel
-    // glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
-    // float depthPixel[1];
-    // int pixelX = depthMapWidth/2;
-    // int pixelY = depthMapHeight/2;
-    // glReadPixels(pixelX, pixelY, 1, 1, GL_DEPTH_COMPONENT,
-    //               GL_FLOAT, &depthPixel);
-    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
     // Render depth buffer
     glViewport(0, 0, WIDTH, HEIGHT);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -441,11 +452,11 @@ int main(void)
     shaderScreen.use();
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, depthMapTexture); //scene.materials.get(0).textureDiffuse.getId());
+    glBindTexture(GL_TEXTURE_2D, depthMapTexture.getId());
 
     glDisable(GL_DEPTH_TEST);
-    glBindVertexArray(screenQuadVAO);
-    glDrawElements(GL_TRIANGLES, screenQuadIndices.size(), GL_UNSIGNED_INT, 0);
+    glBindVertexArray(screenQuad.vao);
+    glDrawElements(GL_TRIANGLES, screenQuad.nIndices, GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
     glEnable(GL_DEPTH_TEST);
 

@@ -14,6 +14,7 @@ add_executable(main
   Material.cpp
   Mesh.cpp
   Scene.cpp
+  ScreenQuad.cpp
   Shader.cpp
   Texture.cpp
   Transform.cpp

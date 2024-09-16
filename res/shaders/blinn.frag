@@ -10,6 +10,8 @@ in vec4 vertPositionLight;
 #define PI 3.14159f
 #define EPSILON 0.000001f
 
+#define SHADOWBIAS 0.0002f //max(0.05 * (1.0 - max(dot(vertLightDir, normal), 0.0f)), 0.005);
+
 // Lights
 #define MAX_NUM_LIGHTS 512
 
@@ -125,8 +127,7 @@ void main()
 
     // If the current vertex depth is further than the closes point seen from
     // the light, the vertex is in shadow.
-    float shadowBias = 0.001; //max(0.05 * (1.0 - max(dot(vertLightDir, normal), 0.0f)), 0.005);
-    isInLight = projCoords.z - shadowBias > closestDepth ? false : true;  
+    isInLight = projCoords.z - SHADOWBIAS > closestDepth ? false : true;  
     
     // Check against small fudge factor instead of zero. Stops lighting glitch
     // when surface is parallel to light direction.

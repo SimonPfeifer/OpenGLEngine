@@ -8,6 +8,8 @@ Texture::Texture()
 {
 	width = 0;
 	height = 0;
+
+  glGenTextures(1, &textureId);
 }
 
 Texture::Texture(const char* filepath) : Texture()
@@ -15,11 +17,24 @@ Texture::Texture(const char* filepath) : Texture()
   loadTextureData(filepath);
 }
 
-
 void Texture::bind(const int textureSlot) const
 {
   glActiveTexture(GL_TEXTURE0 + textureSlot);
   glBindTexture(GL_TEXTURE_2D, textureId);
+}
+
+
+void Texture::emptyTexture2D(int width, int height,
+                             GLint format, GLenum type)
+{
+  this->width = width;
+  this->height = height;
+
+  glBindTexture(GL_TEXTURE_2D, textureId);
+  glTexImage2D(GL_TEXTURE_2D, 0, format,
+               width, height, 0, format,
+               type, NULL);
+  glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 bool Texture::loadTextureData(const char* filepath) 
@@ -45,9 +60,6 @@ bool Texture::loadTextureData(const char* filepath)
       std::cerr << "ERROR::loadTextureData unknown texture color format."
         << std::endl;
 
-    // Generate texture buffer.
-    glGenTextures(1, &textureId);
-
     // Load GL texture buffer.
     glBindTexture(GL_TEXTURE_2D, textureId);
 
@@ -63,6 +75,9 @@ bool Texture::loadTextureData(const char* filepath)
 		
     // Generate mipmap levels.
     glGenerateMipmap(GL_TEXTURE_2D);
+
+    // Unbind texture.
+    glBindTexture(GL_TEXTURE_2D, 0);
 
     success = true;
 	}
@@ -80,4 +95,23 @@ bool Texture::loadTextureData(const char* filepath)
 bool Texture::loadTextureData(std::string filepath)
 {
   return loadTextureData(filepath.c_str());
+}
+
+void Texture::minMagFilter(GLint minFilter, GLint magFilter)
+{
+  // Warning! Hard wired for 2D texture!
+  // TODO: Make texture type part of the object.
+  glBindTexture(GL_TEXTURE_2D, textureId);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
+  glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void Texture::wrapMode(GLint sMode, GLint tMode)
+{
+  // Warning! Hard wired for 2D texture!
+  glBindTexture(GL_TEXTURE_2D, textureId);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sMode);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tMode);
+  glBindTexture(GL_TEXTURE_2D, 0);
 }
