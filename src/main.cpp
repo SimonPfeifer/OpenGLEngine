@@ -3,6 +3,7 @@
 #include "Light.h"
 #include "ScreenQuad.h"
 #include "Shader.h"
+#include "Shadow.h"
 #include "Texture.h"
 
 #include "Scene.h"
@@ -176,6 +177,7 @@ int main(void)
 
   // Shadow pass framebuffer and texture.
   // Generate texture buffer to store shadow pass depth data.
+  int nShadowCascadeSlices = 4;
   const unsigned int depthMapWidth =  4096 * 4;
   const unsigned int depthMapHeight = 4096 * 4;
 
@@ -183,7 +185,7 @@ int main(void)
   depthMapTexture.emptyTexture2D(depthMapWidth, depthMapHeight,
                                  GL_DEPTH_COMPONENT, GL_FLOAT);
   depthMapTexture.minMagFilter(GL_NEAREST, GL_NEAREST);
-  depthMapTexture.wrapMode(GL_REPEAT, GL_REPEAT);
+  depthMapTexture.wrapMode(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
 
   // Generate framebuffer to render to.
   FrameBuffer depthMapFBO;
@@ -264,94 +266,13 @@ int main(void)
 
     // Shadow pass.
     // Calculate the 8 corners of the camera frustum in world space.
+    Shadow shadow = Shadow(depthMapWidth, depthMapHeight, nShadowCascadeSlices);
+
     float sunHeight = 1000.0f;
+    shadow.shadowMatrices(sunHeight, sun.direction, scene.camera);
 
-    glm::vec4 frustumCorners[8] = 
-    {
-      glm::vec4(-1.0f, -1.0f, -1.0f, 1.0f), // near bottom left
-      glm::vec4( 1.0f, -1.0f, -1.0f, 1.0f), // near bottom right
-      glm::vec4(-1.0f,  1.0f, -1.0f, 1.0f), // near top left
-      glm::vec4( 1.0f,  1.0f, -1.0f, 1.0f), // near top right
-
-      glm::vec4(-1.0f, -1.0f,  1.0f, 1.0f), // and the far equivalent
-      glm::vec4( 1.0f, -1.0f,  1.0f, 1.0f),
-      glm::vec4(-1.0f,  1.0f,  1.0f, 1.0f),
-      glm::vec4( 1.0f,  1.0f,  1.0f, 1.0f),
-    };
-
-    glm::mat4 inverseCameraMV= glm::inverse(scene.camera.projection*scene.camera.view);
-    for (int i=0; i<8; ++i)
-    {
-      glm::vec4 corner = inverseCameraMV * frustumCorners[i];
-      corner = corner / corner.w;
-      frustumCorners[i] = corner;
-    }
-
-    // Calculate the sun projection bounds.
-    glm::vec3 center = glm::vec3(0.0f);
-    for (const auto& v : frustumCorners)
-    {
-        center += glm::vec3(v);
-    }
-    center /= 8.0f; // number of corners
-
-    // Find the maximum size sphere required to fit the entire camera, 
-    // frustum centered on the camera frustum. This allows the sun
-    // projection to be of constant size independent of camera rotation.
-    float radius = 0.0f;
-    for (int i=0; i<8; ++i)
-    {
-      float cornerDistance = glm::length(center - 
-                                         glm::vec3(frustumCorners[i]));
-      radius = std::max(radius, cornerDistance);
-    }
-    glm::vec3 maxBounds = glm::vec3(radius, radius, radius);
-    glm::vec3 minBounds = -maxBounds;
-
-    // Add the sun height to the z bounds to add more depth "behind"
-    // the projection. This allow for shadow casters to exist outside the
-    // camera frustum up to that distance.
-    maxBounds.z += sunHeight;
-    glm::vec3 extentBounds = maxBounds - minBounds;
-
-    // Put sun at maximum bound in the z direction.
-    glm::mat4 sunView = glm::lookAt(center - sun.direction*maxBounds.z,
-                                    center,
-                                    glm::vec3(0.0f, 1.0f, 0.0f));
-
-    // Generate the sun projection matrix from the bounding box bounds.
-    glm::mat4 sunProjection = glm::ortho(minBounds.x, maxBounds.x,
-                                         minBounds.y, maxBounds.y,
-                                         0.0f, extentBounds.z);
-
-
-    // Offset of the sun projection to keep the shadow map moving in
-    // texel increments. Does not affect camera rotation.
-    // Project the world origin into sun NDC.
-    glm::mat4 sunViewProjection = sunProjection * sunView;
-    glm::vec4 origin = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-    origin = sunViewProjection * origin;
-
-    // Convert NDC into texel space. NDC covers [-1,1], so a unit [0,1]
-    // covers half the shadow map size.
-    origin.x *=  depthMapWidth / 2.0f;
-    origin.y *=  depthMapHeight / 2.0f;
-
-    // The offset is the fractional part of the textel coordinates.
-    // Warning: as the camera moves, the sun projection bounds change 
-    // slightly, bouncing between texel coords causing slight shadow
-    // flickering (rounding error?).
-    glm::vec4 originRounded = glm::round(origin);
-    glm::vec4 offset = origin - originRounded;
-
-    // Convert back to NDC. Only interested in X and Y direction.
-    offset.x *= 2.0f / depthMapWidth;
-    offset.y *= 2.0f / depthMapHeight;
-    offset.z = 0.0f;
-    offset.w = 0.0f;
-
-    sunProjection[3] -= offset;
-
+    glm::mat4 sunView = shadow.view[0];
+    glm::mat4 sunProjection = shadow.projection[0];
 
     // Configure shader and matrices.
     shaderDepth.use();

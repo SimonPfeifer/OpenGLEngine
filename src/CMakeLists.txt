@@ -16,6 +16,7 @@ add_executable(main
   Scene.cpp
   ScreenQuad.cpp
   Shader.cpp
+  Shadow.cpp
   Texture.cpp
   Transform.cpp
 )

@@ -25,6 +25,16 @@ public:
 
   void updateView();
 
+  // Setters and getters.
+  float getFOV() const {return fov;}
+  void setFOV(float fov) {this->fov=fov;}
+  float getAspectRatio() const {return aspectRatio;}
+  void setAspectRatio(float aspectRatio) {this->aspectRatio=aspectRatio;}
+  float getNear() const {return zNear;}
+  void setNear(float near) {this->zNear=near;}
+  float getFar() const {return zFar;}
+  void setFar(float far) {this->zFar=far;}
+
 private:
   // Projection quantities.
 	float fov;
