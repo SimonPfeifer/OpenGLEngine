@@ -3,7 +3,7 @@
 #include <iostream>
 
 // These should be really be user defined per model import.
-#define ASSIMP_LOAD_FLAGS (aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices)
+#define ASSIMP_LOAD_FLAGS (aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices)
 
 bool Scene::loadModel(const char* filepath)
 {
