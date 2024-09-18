@@ -12,6 +12,7 @@ public:
 
   glm::mat4 *view;
   glm::mat4 *projection;
+  glm::mat4 *viewProjection;
 
   void shadowMatrices(float lightHeight, glm::vec3 &lightDirection,
                       Camera &camera);
@@ -28,6 +29,10 @@ private:
                                 const glm::vec4 (&frustumCorners)[8],
                                 glm::vec3 &minBounds,
                                 glm::vec3 &maxBounds);
+  void frustumSliceBoundsBox(const glm::vec4 (&frustumCorners)[8],
+                             const glm::mat4 &view,
+                             glm::vec3 &minBounds,
+                             glm::vec3 &maxBounds);
   void projectionTexelOffset(const glm::mat4 &viewMatrix,
                              glm::mat4 &projectionMatrix);
 };

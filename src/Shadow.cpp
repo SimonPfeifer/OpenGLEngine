@@ -10,12 +10,14 @@ Shadow::Shadow(int mapWidht, int mapHeight, int nCascadeSlices)
 
   view = new glm::mat4[nShadowCascadeSlices];
   projection = new glm::mat4[nShadowCascadeSlices];
+  viewProjection = new glm::mat4[nShadowCascadeSlices];
 }
 
 Shadow::~Shadow()
 {
   delete[] view;
   delete[] projection;
+  delete[] viewProjection;
 }
 
 void Shadow::shadowMatrices(float lightHeight, glm::vec3 &lightDirection,
@@ -42,11 +44,22 @@ void Shadow::shadowMatrices(float lightHeight, glm::vec3 &lightDirection,
     }
     center /= 8.0f; // number of corners
 
-    // Calculate the light projection bounds using a sphere to keep the
-    // bounds constant independent of camera rotation. Removes shadow 
-    // crawling when the the camera rotates to look around.
+    // Calculate the bounds for the light projection matrix.
     glm::vec3 minBounds;
     glm::vec3 maxBounds;
+
+    // Calculate the bounds using a tight box around the frustum slice in the
+    // light view space. Produces shadow crawling when the camera rotates due to
+    // the bounding box changing size.
+    // view[slice] = glm::lookAt(center - lightDirection,
+    //                           center,
+    //                           glm::vec3(0.0f, 1.0f, 0.0f));
+    // Shadow::frustumSliceBoundsBox(frustumCorners, view[slice],
+    //                               minBounds, maxBounds);
+
+    // Calculate the light projection bounds using a sphere to keep the
+    // bounds constant independent of camera rotation. Removes shadow 
+    // crawling when the camera rotates to look around.
     Shadow::frustumSliceBoundsSphere(center, frustumCorners,
                                      minBounds, maxBounds);
 
@@ -68,6 +81,8 @@ void Shadow::shadowMatrices(float lightHeight, glm::vec3 &lightDirection,
     // Force the light porjection to move in shadow map texel increments
     // to remove shadow crawling when the camera moves.
     projectionTexelOffset(view[slice], projection[slice]);
+
+    viewProjection[slice] = projection[slice] * view[slice];
   }
 
   // Clean up.
@@ -141,7 +156,26 @@ void Shadow::frustumSliceBoundsSphere(const glm::vec3 &center,
   minBounds = -maxBounds;
 }
 
-void Shadow::projectionTexelOffset(const glm::mat4 &viewMatrix, glm::mat4 &projectionMatrix)
+void Shadow::frustumSliceBoundsBox(const glm::vec4 (&frustumCorners)[8],
+                                   const glm::mat4 &view,
+                                   glm::vec3 &minBounds,
+                                   glm::vec3 &maxBounds)
+{
+  // Find the bounds by fitting a tight box around the frustum corners in the 
+  // light view space.
+  minBounds = glm::vec3(std::numeric_limits<float>::max());
+  maxBounds = glm::vec3(std::numeric_limits<float>::lowest());
+  for (int i=0; i<8; ++i)
+  {
+    glm::vec3 cornerView = glm::vec3(view * frustumCorners[i]);
+    minBounds = glm::min(minBounds, cornerView);
+    maxBounds = glm::max(maxBounds, cornerView);
+  }
+
+}
+
+void Shadow::projectionTexelOffset(const glm::mat4 &viewMatrix,
+                                   glm::mat4 &projectionMatrix)
 {
   // Offset the light projection to keep the shadow map moving in
   // texel increments. Stops shadow crawling when the camera moves;
