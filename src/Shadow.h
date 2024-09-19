@@ -9,7 +9,7 @@
 class Shadow
 {
 public:
-  Shadow(int mapWidht, int mapHeight, int nCascadeSlices);
+  Shadow(int mapWidht, int mapHeight, int nCascadeSlices, float weightLogLinear);
 
   void shadowMatrices(float lightHeight, glm::vec3 &lightDirection,
                       Camera &camera);
@@ -38,6 +38,7 @@ private:
   std::vector<glm::mat4> projection;
   std::vector<glm::mat4> viewProjection;
 
+  float weightLogLinear;
   std::vector<float> slicePlaneDistances;
   
 

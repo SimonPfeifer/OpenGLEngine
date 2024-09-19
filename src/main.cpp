@@ -100,6 +100,9 @@ int main(void)
     return -1;
   }
 
+  // Set the window location to the top left corner.
+  glfwSetWindowPos(window, 0, 50);
+
   // Make the window's context current.
   glfwMakeContextCurrent(window);
 
@@ -268,9 +271,16 @@ int main(void)
     // Start rendering.
 
     // Shadow pass.
-    // Calculate the 8 corners of the camera frustum in world space.
-    Shadow shadow = Shadow(depthMapWidth, depthMapHeight, nShadowCascadeSlices);
+    // Weight that determines how the cascade planes are split; 0 is logarithmic
+    // and 1 is linear.
+    float weightLogLinear = 0.5;
+    Shadow shadow = Shadow(depthMapWidth, depthMapHeight, nShadowCascadeSlices,
+                           weightLogLinear);
 
+    // sunHeight determines how far the light is behind the shadow projection
+    // volume for a cascade split. The projection bound is extended by this
+    // amount in the Z direction to allow for shadow casters outside the camera
+    // frustum.
     float sunHeight = 1000.0f;
     shadow.shadowMatrices(sunHeight, sun.direction, scene.camera);
 

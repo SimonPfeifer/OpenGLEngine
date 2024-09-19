@@ -2,11 +2,16 @@
 
 #include <glm/gtc/matrix_transform.hpp>
 
-Shadow::Shadow(int mapWidht, int mapHeight, int nCascadeSlices)
+#include "iostream"
+
+Shadow::Shadow(int mapWidht, int mapHeight, int nCascadeSlices,
+               float weightLogLinear)
 {
-  this->nCascadeSlices = nCascadeSlices;
   this->mapWidth = mapWidht;
   this->mapHeight = mapHeight;
+  this->nCascadeSlices = nCascadeSlices;
+  this->weightLogLinear = weightLogLinear;
+
   reset();
 }
 
@@ -81,14 +86,19 @@ void Shadow::frustumSliceZDistances(Camera &camera)
   // camera near and far.
   float near = camera.getNear();
   float far = camera.getFar();
-  float zRange = far - near;
 
   // Linear spacing.
-  float dz = zRange / (float)nCascadeSlices;
+  float dzLinear = far - near;
+
+  // Logarithmic spacing.
+  float dzLog = far / near;
   
   for (int i=0; i<nCascadeSlices+1; ++i)
   {
-    slicePlaneDistances[i] = near + dz * (float)i;
+    float frac = float(i) / float(nCascadeSlices);
+    slicePlaneDistances[i] = weightLogLinear *  near * pow(dzLog, frac) +
+                             (1.0f - weightLogLinear) * (near + dzLinear * frac);
+    // slicePlaneDistances[i] = near + dzLinear * (float)i;
   }
 }
 
