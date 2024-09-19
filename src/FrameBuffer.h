@@ -12,6 +12,7 @@ public:
   void setReadBuffer(GLenum buf);
 
   void bindTexture2D(GLenum attachment, GLuint texture);
+  void bindTexture3D(GLenum attachment, GLuint texture);
 
   void checkStatus();
 

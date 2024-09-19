@@ -133,10 +133,13 @@ int main(void)
   // Shaders.
   Shader shaderBlinn("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\blinn.vert",
                      "D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\blinn.frag");
-  Shader shaderDepth("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\depth.vert",
-                     "D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\depth.frag");
   Shader shaderScreen("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\screenTexture.vert",
                       "D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\screenTexture.frag");
+  Shader shaderDepth;
+  shaderDepth.loadVertexShader("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\depth.vert");
+  shaderDepth.loadFragmentShader("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\depth.frag");
+  shaderDepth.loadGeometryShader("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\depth.geo");
+  shaderDepth.compileShaderProgram();
   
   // Build the scene.
   Scene scene;
@@ -144,7 +147,7 @@ int main(void)
   // Camera.
   double cursorPosX, cursorPosY;
   glfwGetCursorPos(window, &cursorPosX, &cursorPosY);
-  scene.camera.position = glm::vec3(0.0f, 0.0f, -10.0f);
+  scene.camera.position = glm::vec3(0.0f, 0.0f, 0.0f);
 
   // Fixes the camera jump when starting up by setting the curser positions
   // without moving the camera.
@@ -177,21 +180,24 @@ int main(void)
 
   // Shadow pass framebuffer and texture.
   // Generate texture buffer to store shadow pass depth data.
+
+  // Value of 4 is hard coded everywhere! Changing it here won't work!
   int nShadowCascadeSlices = 4;
-  const unsigned int depthMapWidth =  4096 * 4;
-  const unsigned int depthMapHeight = 4096 * 4;
+  
+  const unsigned int depthMapWidth =  4096;
+  const unsigned int depthMapHeight = 4096;
 
   Texture depthMapTexture;
-  depthMapTexture.emptyTexture2D(depthMapWidth, depthMapHeight,
+  depthMapTexture.emptyTexture3D(depthMapWidth, depthMapHeight, nShadowCascadeSlices,
                                  GL_DEPTH_COMPONENT, GL_FLOAT);
-  depthMapTexture.minMagFilter(GL_NEAREST, GL_NEAREST);
-  depthMapTexture.wrapMode(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
+  depthMapTexture.minMagFilter3D(GL_NEAREST, GL_NEAREST);
+  depthMapTexture.wrapMode3D(GL_CLAMP_TO_BORDER, GL_CLAMP_TO_BORDER);
 
   // Generate framebuffer to render to.
   FrameBuffer depthMapFBO;
 
   // Bind texture to framebuffer.
-  depthMapFBO.bindTexture2D(GL_DEPTH_ATTACHMENT, depthMapTexture.getId());
+  depthMapFBO.bindTexture3D(GL_DEPTH_ATTACHMENT, depthMapTexture.getId());
 
   // Set the colour buffer to GL_NONE.
   depthMapFBO.setDrawBuffer(GL_NONE);
@@ -227,7 +233,6 @@ int main(void)
 
     // Update objects.
 
-
     // Pre-render setup.
     // Build UBO for lights
     int numLights = static_cast<int>(scene.lights.size());
@@ -261,8 +266,6 @@ int main(void)
     glBindBuffer(GL_UNIFORM_BUFFER, lightsUBO);
 
     // Start rendering.
-    // glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     // Shadow pass.
     // Calculate the 8 corners of the camera frustum in world space.
@@ -271,21 +274,18 @@ int main(void)
     float sunHeight = 1000.0f;
     shadow.shadowMatrices(sunHeight, sun.direction, scene.camera);
 
-    glm::mat4 sunView = shadow.view[0];
-    glm::mat4 sunProjection = shadow.projection[0];
-
     // Configure shader and matrices.
     shaderDepth.use();
-    shaderDepth.setUniformMatrix4f("view", sunView);//scene.camera.view);
-    shaderDepth.setUniformMatrix4f("projection", sunProjection);
+    for (int slice=0; slice<nShadowCascadeSlices; ++slice)
+    {
+      shaderDepth.setUniformMatrix4f("lightViewProjection["+std::to_string(slice)+"]",
+                                     shadow.getViewProjection(slice));
+    }
 
     // Set viewport and framebuffer.
-    // glViewport(0, 0, WIDTH, HEIGHT);
-    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, depthMapWidth, depthMapHeight);
     glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO.getId());
     glClear(GL_DEPTH_BUFFER_BIT);
-    // glClearColor(0.0f, 0.0f, 1.0f, 1.0f);
 
     // Render the scene shadows.
     for (const Instance& instance : scene.instances)
@@ -307,7 +307,6 @@ int main(void)
     }
     glBindVertexArray(0);
 
-
     // Main render pass.
     // Rebind default framebuffer and screen viewport.
     glViewport(0, 0, WIDTH, HEIGHT);
@@ -327,18 +326,28 @@ int main(void)
     shader.setUniformMatrix4f("view", scene.camera.view);
 
     // Light matrices and depth texture for shadow mapping.
-    shader.setUniformMatrix4f("lightView", sunView);
-    shader.setUniformMatrix4f("lightProjection", sunProjection);
+    for (int slice=0; slice<nShadowCascadeSlices; ++slice)
+    {
+      // Read slice+1 to skip the near plane, e.g. only include far planes of
+      // each cascade slice.
+      shader.setUniformFloat("slicePlaneDistances["+std::to_string(slice)+"]",
+                                shadow.getSlicePlaneDistances(slice+1));
+    }
+
+    for (int slice=0; slice<nShadowCascadeSlices; ++slice)
+    {
+      shader.setUniformMatrix4f("lightViewProjection["+std::to_string(slice)+"]",
+                                shadow.getViewProjection(slice));
+    }
 
     shader.setUniformInt("textureDepth", 2);
     glActiveTexture(GL_TEXTURE0 + 2);
-    glBindTexture(GL_TEXTURE_2D, depthMapTexture.getId());
+    glBindTexture(GL_TEXTURE_2D_ARRAY, depthMapTexture.getId());
 
     for (const Instance& instance : scene.instances)
     {
       const Mesh& mesh = scene.meshes.get(instance.meshID);
       const Material& material = scene.materials.get(instance.materialID);
-
       
       // Materials.
       // TODO: Fixed shader layout should make passing the shader unnecessary.
@@ -356,7 +365,6 @@ int main(void)
                                               transform.getModelTransform());
         shader.setUniformMatrix4f("model", transform.getModelTransform());
 
-
         // Draw.
         glDrawElements(GL_TRIANGLES, mesh.nIndices, GL_UNSIGNED_INT, 0);
       }
@@ -364,22 +372,23 @@ int main(void)
     glBindVertexArray(0);
 
     // Render depth buffer
-    glViewport(0, 0, WIDTH, HEIGHT);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // glViewport(0, 0, WIDTH, HEIGHT);
+    // glBindFramebuffer(GL_FRAMEBUFFER, 0);
     // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    // glClearColor(0.0f, 1.0f, 0.0f, 1.0f); 
+    // glClearColor(0.5f, 0.5f, 0.5f, 1.0f); 
     
-    // Configure shader and matrices.
-    shaderScreen.use();
+    // // Configure shader and matrices.
+    // shaderScreen.use();
+    // shaderScreen.setUniformInt("screenTexture", 0);
+    // glActiveTexture(GL_TEXTURE0);
+    // glBindTexture(GL_TEXTURE_2D_ARRAY, depthMapTexture.getId());
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, depthMapTexture.getId());
-
-    glDisable(GL_DEPTH_TEST);
-    glBindVertexArray(screenQuad.vao);
-    glDrawElements(GL_TRIANGLES, screenQuad.nIndices, GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
-    glEnable(GL_DEPTH_TEST);
+    // // Render texture to quad.
+    // glDisable(GL_DEPTH_TEST);
+    // glBindVertexArray(screenQuad.vao);
+    // glDrawElements(GL_TRIANGLES, screenQuad.nIndices, GL_UNSIGNED_INT, 0);
+    // glEnable(GL_DEPTH_TEST);
+    // glBindVertexArray(0);
 
     // Swap front and back buffers.
     glfwSwapBuffers(window);

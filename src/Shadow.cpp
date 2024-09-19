@@ -4,20 +4,10 @@
 
 Shadow::Shadow(int mapWidht, int mapHeight, int nCascadeSlices)
 {
-  nShadowCascadeSlices = nCascadeSlices;
-  shadowMapWidth = mapWidht;
-  shadowMapHeight = mapHeight;
-
-  view = new glm::mat4[nShadowCascadeSlices];
-  projection = new glm::mat4[nShadowCascadeSlices];
-  viewProjection = new glm::mat4[nShadowCascadeSlices];
-}
-
-Shadow::~Shadow()
-{
-  delete[] view;
-  delete[] projection;
-  delete[] viewProjection;
+  this->nCascadeSlices = nCascadeSlices;
+  this->mapWidth = mapWidht;
+  this->mapHeight = mapHeight;
+  reset();
 }
 
 void Shadow::shadowMatrices(float lightHeight, glm::vec3 &lightDirection,
@@ -25,10 +15,9 @@ void Shadow::shadowMatrices(float lightHeight, glm::vec3 &lightDirection,
 {
   // Calculate the distance of the slice Z planes, including
   // camera near and far.
-  float *slicePlaneDistances = new float[nShadowCascadeSlices+1];
-  frustumSliceZDistances(camera, slicePlaneDistances);
+  frustumSliceZDistances(camera);
 
-  for (int slice=0; slice<nShadowCascadeSlices; ++slice)
+  for (int slice=0; slice<nCascadeSlices; ++slice)
   {
     // Get the corners of the camera frustum slice.
     float sliceNear = slicePlaneDistances[slice];
@@ -84,12 +73,9 @@ void Shadow::shadowMatrices(float lightHeight, glm::vec3 &lightDirection,
 
     viewProjection[slice] = projection[slice] * view[slice];
   }
-
-  // Clean up.
-  delete[] slicePlaneDistances;
 }
 
-void Shadow::frustumSliceZDistances(Camera &camera, float distances[])
+void Shadow::frustumSliceZDistances(Camera &camera)
 {
   // Calculate the distance of the slice Z planes, including
   // camera near and far.
@@ -98,11 +84,11 @@ void Shadow::frustumSliceZDistances(Camera &camera, float distances[])
   float zRange = far - near;
 
   // Linear spacing.
-  float dz = zRange / (float)nShadowCascadeSlices;
+  float dz = zRange / (float)nCascadeSlices;
   
-  for (int i=0; i<nShadowCascadeSlices+1; ++i)
+  for (int i=0; i<nCascadeSlices+1; ++i)
   {
-    distances[i] = near + dz * (float)i;
+    slicePlaneDistances[i] = near + dz * (float)i;
   }
 }
 
@@ -188,8 +174,8 @@ void Shadow::projectionTexelOffset(const glm::mat4 &viewMatrix,
 
   // Convert NDC into texel space. NDC covers [-1,1], so a unit [0,1]
   // covers half the shadow map size.
-  origin.x *=  shadowMapWidth / 2.0f;
-  origin.y *=  shadowMapHeight / 2.0f;
+  origin.x *=  mapWidth / 2.0f;
+  origin.y *=  mapHeight / 2.0f;
 
   // The offset is the fractional part of the textel coordinates.
   // Warning: as the camera moves, the light projection bounds change 
@@ -199,10 +185,21 @@ void Shadow::projectionTexelOffset(const glm::mat4 &viewMatrix,
   glm::vec4 offset = origin - originRounded;
 
   // Convert back to NDC. Only interested in X and Y direction.
-  offset.x *= 2.0f / shadowMapWidth;
-  offset.y *= 2.0f / shadowMapHeight;
+  offset.x *= 2.0f / mapWidth;
+  offset.y *= 2.0f / mapHeight;
   offset.z = 0.0f;
   offset.w = 0.0f;
 
   projectionMatrix[3] -= offset;
+}
+
+void Shadow::reset()
+{
+  // Resize all class vectors and fill with zeroes.
+  glm::mat4 emptyMat4 = glm::mat4(0.0f);
+  view.assign(nCascadeSlices, emptyMat4);
+  projection.assign(nCascadeSlices, emptyMat4);
+  viewProjection.assign(nCascadeSlices, emptyMat4);
+
+  slicePlaneDistances.assign(nCascadeSlices+1, 0.0f);
 }

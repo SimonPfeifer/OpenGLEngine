@@ -12,17 +12,19 @@ class Shader
 {
 public:
 	GLuint shaderId;
-	GLuint vertexShader;
-	GLuint fragmentShader;
 
 	Shader();
   Shader(const char* vertPath, const char* fragPath);
 	~Shader();
+
 	void loadVertexShader(const char* sourcePath);
+  void loadGeometryShader(const char* sourcePath);
 	void loadFragmentShader(const char* sourcePath);
 	void compileShaderProgram();
+
 	void use();
-	void setUniformBool(const std::string& name, bool value);
+	
+  void setUniformBool(const std::string& name, bool value);
 	void setUniformInt(const std::string& name, int value);
 	void setUniformFloat(const std::string& name, float value);
   void setUniformVec3f(const std::string& name, float value[]);
@@ -32,6 +34,12 @@ public:
 	void setUniformMatrix4f(const std::string& name, glm::mat4 value);
 
 private:
+	GLuint vertexShader;
+	GLuint fragmentShader;
+
+  GLuint geometryShader;
+  bool hasGeometryShader = false;
+
 	std::string loadShaderSource(const char* sourcePath);
 	int shaderCompileLog(GLuint shader);
   int shaderLinkLog(GLuint shader);

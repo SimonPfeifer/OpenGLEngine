@@ -37,6 +37,20 @@ void Texture::emptyTexture2D(int width, int height,
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
+void Texture::emptyTexture3D(int width, int height, int depth,
+                             GLint format, GLenum type)
+{
+  this->width = width;
+  this->height = height;
+  this->depth = depth;
+
+  glBindTexture(GL_TEXTURE_2D_ARRAY, textureId);
+  glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, format,
+               width, height, depth, 0, format,
+               type, NULL);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+}
+
 bool Texture::loadTextureData(const char* filepath) 
 {
   bool success;
@@ -97,21 +111,41 @@ bool Texture::loadTextureData(std::string filepath)
   return loadTextureData(filepath.c_str());
 }
 
-void Texture::minMagFilter(GLint minFilter, GLint magFilter)
+// Fix this madness!
+// TODO: Make texture type part of the object.
+void Texture::minMagFilter2D(GLint minFilter, GLint magFilter)
 {
-  // Warning! Hard wired for 2D texture!
-  // TODO: Make texture type part of the object.
+
   glBindTexture(GL_TEXTURE_2D, textureId);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void Texture::wrapMode(GLint sMode, GLint tMode)
+void Texture::wrapMode2D(GLint sMode, GLint tMode)
 {
   // Warning! Hard wired for 2D texture!
   glBindTexture(GL_TEXTURE_2D, textureId);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, sMode);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tMode);
   glBindTexture(GL_TEXTURE_2D, 0);
+}
+
+void Texture::minMagFilter3D(GLint minFilter, GLint magFilter)
+{
+  // Warning! Hard wired for 2D texture!
+  // TODO: Make texture type part of the object.
+  glBindTexture(GL_TEXTURE_2D_ARRAY, textureId);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, minFilter);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, magFilter);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+}
+
+void Texture::wrapMode3D(GLint sMode, GLint tMode)
+{
+  // Warning! Hard wired for 2D texture!
+  glBindTexture(GL_TEXTURE_2D_ARRAY, textureId);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, sMode);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, tMode);
+  glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 }

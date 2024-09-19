@@ -37,6 +37,22 @@ void Shader::loadVertexShader(const char* sourcePath)
   };
 }
 
+void Shader::loadGeometryShader(const char* sourcePath)
+{
+  std::string shaderSourceString = loadShaderSource(sourcePath);
+  const char* shaderSource = shaderSourceString.c_str();
+  geometryShader = glCreateShader(GL_GEOMETRY_SHADER);
+  glShaderSource(geometryShader, 1, &shaderSource, NULL);
+  glCompileShader(geometryShader);
+  if (!shaderCompileLog(geometryShader))
+  {
+    glDeleteShader(geometryShader);
+    geometryShader = 0;
+  };
+
+  hasGeometryShader = true;
+}
+
 void Shader::loadFragmentShader(const char* sourcePath)
 {
   std::string shaderSourceString = loadShaderSource(sourcePath);
@@ -55,6 +71,10 @@ void Shader::compileShaderProgram()
 {
   glAttachShader(shaderId, vertexShader);
   glAttachShader(shaderId, fragmentShader);
+
+  if (hasGeometryShader)
+    glAttachShader(shaderId, geometryShader);
+  
   glLinkProgram(shaderId);
   if (!shaderLinkLog(shaderId))
   {
@@ -62,6 +82,13 @@ void Shader::compileShaderProgram()
     glDeleteShader(fragmentShader);
     vertexShader = 0;
     fragmentShader = 0;
+
+    if (hasGeometryShader)
+    {
+      glDeleteShader(geometryShader);
+      geometryShader = 0;
+      hasGeometryShader = false;
+    }
   };
 }
 

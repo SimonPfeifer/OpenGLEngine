@@ -32,6 +32,16 @@ void FrameBuffer::bindTexture2D(GLenum attachment, GLuint texture)
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void FrameBuffer::bindTexture3D(GLenum attachment, GLuint texture)
+{
+  glBindFramebuffer(GL_FRAMEBUFFER, bufferId);
+  glFramebufferTexture(GL_FRAMEBUFFER,
+                       attachment,
+                       texture,
+                       0);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 void FrameBuffer::checkStatus()
 {
   // Check if the framebuffer was setup correctly.

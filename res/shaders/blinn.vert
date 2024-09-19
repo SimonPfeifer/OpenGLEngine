@@ -6,14 +6,11 @@ layout(location = 2) in vec2 aUV;
 out vec3 vertPosition;
 out vec3 vertNormal;
 out vec2 vertUV;
-out vec4 vertPositionLight;
-
-uniform mat4 modelView;
-uniform mat4 projection;
+out vec4 vertPositionWorld;
 
 uniform mat4 model;
-uniform mat4 lightView;
-uniform mat4 lightProjection;
+uniform mat4 modelView;
+uniform mat4 projection;
 
 
 void main()
@@ -26,5 +23,5 @@ void main()
   vertNormal = transpose(inverse(mat3(modelView))) * aNormal;
   vertUV = aUV;
 
-  vertPositionLight = lightProjection * lightView * model * vec4(aPosition, 1.0f);
+  vertPositionWorld = model * vec4(aPosition, 1.0f);
 }
