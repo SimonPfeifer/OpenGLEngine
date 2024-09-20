@@ -150,7 +150,8 @@ int main(void)
   // Camera.
   double cursorPosX, cursorPosY;
   glfwGetCursorPos(window, &cursorPosX, &cursorPosY);
-  scene.camera.position = glm::vec3(0.0f, 0.0f, 0.0f);
+  scene.camera.position = glm::vec3(50.0f, 100.0f, 0.0f);
+  scene.camera.lookAt(glm::vec3(0.0f, 100.0f, 0.0f));
 
   // Fixes the camera jump when starting up by setting the curser positions
   // without moving the camera.
@@ -158,7 +159,9 @@ int main(void)
 
   // Models.
   const char* sponza = "D:\\Documents\\Cpp\\glTF-Sample-Assets\\Models\\Sponza\\glTF\\Sponza.gltf";
-  scene.loadModel(sponza);
+  scene.loadModel(sponza, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.1f));
+  const char* sphere = "D:\\Documents\\Cpp\\OpenGLEngine\\res\\assets\\sphere\\sphere.gltf";
+  scene.loadModel(sphere, glm::vec3(0.0f, 100.0f, 0.0f), glm::vec3(0.0f), glm::vec3(10.0f));
 
   // Lights.
   Light sun;
@@ -230,7 +233,7 @@ int main(void)
 
     // Update state of objects.
     // Update camera.
-    scene.camera.updateView();
+    scene.camera.update();
 
     // Update lights.
 

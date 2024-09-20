@@ -5,7 +5,8 @@
 // These should be really be user defined per model import.
 #define ASSIMP_LOAD_FLAGS (aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices)
 
-bool Scene::loadModel(const char* filepath)
+bool Scene::loadModel(const char* filepath,
+                      glm::vec3 position, glm::vec3 rotation, glm::vec3 scale)
 {
   Assimp::Importer importer;
   const aiScene* scene = importer.ReadFile(filepath, ASSIMP_LOAD_FLAGS);
@@ -13,7 +14,7 @@ bool Scene::loadModel(const char* filepath)
   bool success = false;
   if (scene)
   {
-    success = processScene(scene, filepath);
+    success = processScene(scene, filepath, position, rotation, scale);
   }
   else
   {
@@ -34,7 +35,8 @@ void Scene::clear()
   lights.clear();
 }
 
-bool Scene::processScene(const aiScene* scene, const char* filepath)
+bool Scene::processScene(const aiScene* scene, const char* filepath,
+                         glm::vec3 position, glm::vec3 rotation, glm::vec3 scale)
 {
   bool success = true;
 
@@ -74,7 +76,12 @@ bool Scene::processScene(const aiScene* scene, const char* filepath)
     instance.materialID = materialIDs[meshMaterialIndex[i]];
 
     unsigned int transformID = transforms.add();
-    transforms.get(transformID).scale = glm::vec3(0.1f);
+    
+    // This seems unnecessary; only change if these values are non-zero.
+    transforms.get(transformID).position = position;
+    transforms.get(transformID).rotation = rotation;
+    transforms.get(transformID).scale = scale;
+
     instance.transformIDs.push_back(transformID);
 
     instances.push_back(instance);

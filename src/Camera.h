@@ -18,22 +18,23 @@ public:
 	glm::mat4 view;
   glm::mat4 projection;
 
+  void update();
+
+  void lookAt(glm::vec3 target);
 	void setProjection(float fov, float aspectRatio, float zNear, float zFar, bool useOrtho);
 
   void applyKeybordInput(int keybordInput, float deltaTime);
   void applyMouseInput(float cursorPosX, float cursorPosY, bool paused);
 
-  void updateView();
-
   // Setters and getters.
   float getFOV() const {return fov;}
-  void setFOV(float fov) {this->fov=fov;}
+  void setFOV(float fov) {this->fov=fov; applyProjection();}
   float getAspectRatio() const {return aspectRatio;}
-  void setAspectRatio(float aspectRatio) {this->aspectRatio=aspectRatio;}
+  void setAspectRatio(float aspectRatio) {this->aspectRatio=aspectRatio; applyProjection();}
   float getNear() const {return zNear;}
-  void setNear(float near) {this->zNear=near;}
+  void setNear(float near) {this->zNear=near; applyProjection();}
   float getFar() const {return zFar;}
-  void setFar(float far) {this->zFar=far;}
+  void setFar(float far) {this->zFar=far; applyProjection();}
 
 private:
   // Projection quantities.

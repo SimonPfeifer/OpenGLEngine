@@ -35,12 +35,16 @@ public:
   
   std::vector<Light> lights;
   
-  bool loadModel(const char* filepath);
+  bool loadModel(const char* filepath,
+                 glm::vec3 position = glm::vec3(0.0f),
+                 glm::vec3 rotation = glm::vec3(0.0f),
+                 glm::vec3 scale = glm::vec3(1.0f));
 
   void clear();
 
 private:
-  bool processScene(const aiScene* scene, const char* filepath);
+  bool processScene(const aiScene* scene, const char* filepath,
+                    glm::vec3 position, glm::vec3 rotation, glm::vec3 scale);
   void loadMesh(const aiMesh* aiMesh, std::vector<unsigned int>& meshIDs,
                 std::vector<unsigned int>& meshMaterialIndex);
   bool loadMaterial(const aiMaterial* aimaterial, const char* filepath,
