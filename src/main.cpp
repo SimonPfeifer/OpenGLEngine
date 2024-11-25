@@ -134,14 +134,17 @@ int main(void)
   // All the init code until here.
 
   // Shaders.
-  Shader shaderBlinn("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\blinn.vert",
-                     "D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\blinn.frag");
-  Shader shaderScreen("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\screenTexture.vert",
-                      "D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\screenTexture.frag");
+  Shader shaderBlinn("..\\res\\shaders\\blinn.vert",
+                     "..\\res\\shaders\\blinn.frag");
+
+  // Shader for rendering a texture to the screen as an inset.
+  // Shader shaderScreen("..\\res\\shaders\\screenTexture.vert",
+  //                     "..\\res\\shaders\\screenTexture.frag");
+
   Shader shaderDepth;
-  shaderDepth.loadVertexShader("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\depth.vert");
-  shaderDepth.loadFragmentShader("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\depth.frag");
-  shaderDepth.loadGeometryShader("D:\\Documents\\Cpp\\OpenGLEngine\\res\\shaders\\depth.geo");
+  shaderDepth.loadVertexShader("..\\res\\shaders\\depth.vert");
+  shaderDepth.loadFragmentShader("..\\res\\shaders\\depth.frag");
+  shaderDepth.loadGeometryShader("..\\res\\shaders\\depth.geo");
   shaderDepth.compileShaderProgram();
   
   // Build the scene.
@@ -158,10 +161,8 @@ int main(void)
   scene.camera.applyMouseInput((float)cursorPosX, (float)cursorPosY, true);
 
   // Models.
-  const char* sponza = "D:\\Documents\\Cpp\\glTF-Sample-Assets\\Models\\Sponza\\glTF\\Sponza.gltf";
+  const char* sponza = "..\\res\\assets\\sponza\\glTF\\Sponza.gltf";
   scene.loadModel(sponza, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.1f));
-  const char* sphere = "D:\\Documents\\Cpp\\OpenGLEngine\\res\\assets\\sphere\\sphere.gltf";
-  scene.loadModel(sphere, glm::vec3(0.0f, 100.0f, 0.0f), glm::vec3(0.0f), glm::vec3(10.0f));
 
   // Lights.
   Light sun;

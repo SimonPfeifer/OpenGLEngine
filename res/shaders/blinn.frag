@@ -4,7 +4,7 @@ out vec4 fragColor;
 in vec3 vertPosition;
 in vec3 vertNormal;
 in vec2 vertUV;
-in vec4 vertPositionWorld;
+in vec4 vertPositionLight;
 
 // Constants
 #define PI 3.14159f
@@ -54,11 +54,8 @@ uniform float specularStrength;
 uniform sampler2D textureDiffuse;
 uniform sampler2D textureSpecular;
 
-// Shadow mapping
-uniform float slicePlaneDistances[4];
-uniform mat4 lightViewProjection[4];
-uniform sampler2DArray textureDepth;
-
+// Depth map texture
+uniform sampler2D textureDepth;
 
 void main()
 {
@@ -116,28 +113,9 @@ void main()
       }
     }
 
-    // Cascade shadow mapping.
-    // Find which cascade slice this fragment sits in. 
-    int nSlices = 4;
-    int slice = nSlices;
-    for(int i=nSlices; i>=0; --i)
-    {
-      if(abs(vertPosition.z) < slicePlaneDistances[i])
-      {
-        slice = i;
-      }
-    }
-
-    // Blend a color with the diffuse color to visualise the cascades.
-    // float sliceMix = float(slice)/float(nSlices);
-    // float cascadeAlpha = 0.8;
-    // vec3 cascadeBaseColor = vec3(0.8f, 0.0f, 0.0f);
-    // vec3 cascadeLayerColor = vec3(0.0f, 0.8f, 0.0f);
-    // vec3 cascadeColor = mix(cascadeBaseColor, cascadeLayerColor, sliceMix);
-    // diffuseCol = cascadeColor * cascadeAlpha + diffuseCol * (1.0f-cascadeAlpha);
-
-    // Transform fragment into light projection and perspective divide.
-    vec4 vertPositionLight = lightViewProjection[slice] * vertPositionWorld;
+    // Sample depth map to determine if vertex is in light.
+    // TODO: replace by depth map texture array.
+    // Perspective division.
     vec3 projCoords = vertPositionLight.xyz / vertPositionLight.w;
 
     // Rescale coordinates to [0,1] for depth map comparison.
@@ -145,7 +123,7 @@ void main()
 
     // Sample depth texture using clip space [x,y] and take RED channel value.
     // This value is the closest point (depth) as seen from the light.
-    float closestDepth = texture(textureDepth, vec3(projCoords.xy, slice)).r;
+    float closestDepth = texture(textureDepth, projCoords.xy).r;
 
     // If the current vertex depth is further than the closes point seen from
     // the light, the vertex is in shadow.
@@ -170,27 +148,5 @@ void main()
                 (diffuseCol * lambertian  + specularCol * specular);
   }
 
-  // int nSlices = 4;
-  // int currentSlice = nSlices;
-  // for(int slice=nSlices; slice>=0; --slice)
-  // {
-  //   if(abs(vertPosition.z) < slicePlaneDistances[slice])
-  //   {
-  //     currentSlice = slice;
-  //   }
-  // }
-  // outColor = vec3(0.5f, 0.2f, 0.2f);
-  // outColor.b += float(currentSlice) * 0.2f;
-
-  // float pos = abs(vertPosition.z) / slicePlaneDistances[1];
-  // outColor = vec3(pos, pos, pos);
-
-  // vec3 projCoords = vertPositionLight.xyz / vertPositionLight.w;
-  // projCoords = projCoords * 0.5f + 0.5f;
-  // float depth = texture(textureDepth, vec3(projCoords.xy, 0)).r;
-  // float depthTest = projCoords.z - SHADOWBIAS > depth ? 0.0 : 1.0;
-  // // vec2 screenUV = gl_FragCoord.xy / vec2(1920.0f, 1080.0f);
-  // // float depth = texture(textureDepth, vec3(screenUV, 0)).r;
-  // outColor = vec3(depthTest, depthTest, depthTest);
   fragColor = vec4(outColor, 1.0f);
 }

@@ -29,3 +29,5 @@ target_link_libraries(main
     glm::glm 
     glad
     stb_image)
+
+file(COPY ../res DESTINATION "${CMAKE_BINARY_DIR}")
