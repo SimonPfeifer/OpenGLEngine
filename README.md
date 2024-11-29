@@ -5,14 +5,16 @@ This is a toy renderer written in OpenGL.
 This project currently only works on Windows!
 
 ```
+make
 cmake
 gcc
 ```
 
-My way of installing `cmake` and `gcc` on Windows is via [msys2](https://www.msys2.org/) with the package manager `pacman`.
+My way of installing the dependencies on Windows is via [msys2](https://www.msys2.org/). I use MINGW64 and install the dependencies with the package manager `pacman`.
 
 ```
-pacman -S make cmake gcc
+pacman -S mingw-w64-x86_64-toolchain
+pacman -S mingw-w64-x86_64-cmake
 ```
 
 ## Building
