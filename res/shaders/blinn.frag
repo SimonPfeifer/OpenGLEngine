@@ -67,7 +67,7 @@ void main()
 
   // Quick hack! Force ambient color to be less than 1.0f and more
   // than a minimum.
-  float ambientMin = 0.05f;
+  float ambientMin = 0.15f;
   vec3 ambient = vec3(ambientMin);
   if ((colorAmbient.x + colorAmbient.y + colorAmbient.z < 3.0f))
   {
@@ -127,7 +127,8 @@ void main()
 
     // If the current vertex depth is further than the closes point seen from
     // the light, the vertex is in shadow.
-    isInLight = projCoords.z - SHADOWBIAS > closestDepth ? false : true;  
+    isInLight = projCoords.z - SHADOWBIAS > closestDepth ? false : true;
+    isInLight = true; 
     
     // Check against small fudge factor instead of zero. Stops lighting glitch
     // when surface is parallel to light direction.

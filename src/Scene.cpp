@@ -1,9 +1,18 @@
 #include "Scene.h"
 
+#include <glad/glad.h>
+
+#include <cassert>
 #include <iostream>
 
-// These should be really be user defined per model import.
+// These should really be user defined per model import.
 #define ASSIMP_LOAD_FLAGS (aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices)
+
+
+Scene::~Scene()
+{
+  clear();
+}
 
 bool Scene::loadModel(const char* filepath,
                       glm::vec3 position, glm::vec3 rotation, glm::vec3 scale)
@@ -14,7 +23,7 @@ bool Scene::loadModel(const char* filepath,
   bool success = false;
   if (scene)
   {
-    success = processScene(scene, filepath, position, rotation, scale);
+    success = loadModelComponents(scene, filepath, position, rotation, scale);
   }
   else
   {
@@ -25,7 +34,6 @@ bool Scene::loadModel(const char* filepath,
   return success;
 }
 
-
 void Scene::clear()
 {
   instances.clear();
@@ -35,8 +43,8 @@ void Scene::clear()
   lights.clear();
 }
 
-bool Scene::processScene(const aiScene* scene, const char* filepath,
-                         glm::vec3 position, glm::vec3 rotation, glm::vec3 scale)
+bool Scene::loadModelComponents(const aiScene* scene, const char* filepath,
+  const glm::vec3 position, const glm::vec3 rotation, const glm::vec3 scale)
 {
   bool success = true;
 
@@ -46,6 +54,8 @@ bool Scene::processScene(const aiScene* scene, const char* filepath,
   std::vector<unsigned int> materialIDs;
 
   // Process the mesh data.
+  meshIDs.reserve(scene->mNumMeshes);
+  meshMaterialIndex.reserve(scene->mNumMeshes);
   for (unsigned int i=0; i<scene->mNumMeshes; ++i)
   {
     // Should include error checking for mesh loading.
@@ -55,6 +65,7 @@ bool Scene::processScene(const aiScene* scene, const char* filepath,
   // Process the material data.
   if (scene->HasMaterials())
   {
+    materialIDs.reserve(scene->mNumMeshes);
     for (unsigned int i=0; i<scene->mNumMaterials; ++i)
     {
       if (!loadMaterial(scene->mMaterials[i], filepath, materialIDs))
@@ -66,7 +77,7 @@ bool Scene::processScene(const aiScene* scene, const char* filepath,
     }
   }
 
-  // Create instance with mesh, material and default transform.
+  // Create instance with mesh, material and transform.
   assert((meshIDs.size() == meshMaterialIndex.size()) &&
     "ERROR::processScene vector size mismatch");
   for (unsigned int i=0; i<meshIDs.size(); ++i)
@@ -77,10 +88,9 @@ bool Scene::processScene(const aiScene* scene, const char* filepath,
 
     unsigned int transformID = transforms.add();
     
-    // This seems unnecessary; only change if these values are non-zero.
-    transforms.get(transformID).position = position;
-    transforms.get(transformID).rotation = rotation;
-    transforms.get(transformID).scale = scale;
+    transforms.get(transformID).setPosition(position);
+    transforms.get(transformID).setRotation(rotation);
+    transforms.get(transformID).setScale(scale);
 
     instance.transformIDs.push_back(transformID);
 
@@ -93,11 +103,9 @@ bool Scene::processScene(const aiScene* scene, const char* filepath,
 void Scene::loadMesh(const aiMesh* aiMesh, std::vector<unsigned int>& meshIDs,
                      std::vector<unsigned int>& meshMaterialIndex)
 {
-  Vertex vertex;
-  std::vector<Vertex> vertices;
-  std::vector<int> indices;
-
   // Load the vertex data.
+  std::vector<Vertex> vertices;
+  vertices.reserve(aiMesh->mNumVertices);
   aiVector3D zeroVec3(0.0f, 0.0f, 0.0f);
   for (unsigned int i=0 ; i<aiMesh->mNumVertices ; ++i) 
   {
@@ -108,13 +116,14 @@ void Scene::loadMesh(const aiMesh* aiMesh, std::vector<unsigned int>& meshIDs,
     aiVector3D uv = (aiMesh->HasTextureCoords(0) ? 
                     aiMesh->mTextureCoords[0][i] : zeroVec3);
 
-    vertex.position = glm::vec3(pos.x, pos.y, pos.z);
-    vertex.normal = glm::vec3(norm.x, norm.y, norm.z);
-    vertex.uv = glm::vec2(uv.x, uv.y);
-    vertices.push_back(vertex);
+    vertices.emplace_back(Vertex(glm::vec3(pos.x, pos.y, pos.z),
+                                 glm::vec3(norm.x, norm.y, norm.z),
+                                 glm::vec2(uv.x, uv.y)));
   }
 
   // Assemble the faces.
+  std::vector<int> indices;
+  indices.reserve(aiMesh->mNumFaces*3);
   for (unsigned int i=0; i<aiMesh->mNumFaces; ++i)
   {
     aiFace face = aiMesh->mFaces[i];
@@ -128,7 +137,7 @@ void Scene::loadMesh(const aiMesh* aiMesh, std::vector<unsigned int>& meshIDs,
 
   // Copy new mesh to database and save ID for later Instance creation.
   unsigned int meshID = meshes.add();
-  meshes.get(meshID) = Mesh(vertices, indices);
+  meshes.get(meshID).loadVertexData(vertices, indices);
   meshIDs.push_back(meshID);
   meshMaterialIndex.push_back(aiMesh->mMaterialIndex);
 }
@@ -139,6 +148,9 @@ bool Scene::loadMaterial(const aiMaterial* aimaterial, const char* filepath,
   bool success = true;
 
   Material material;
+
+  aiString materialName;
+  aimaterial->Get(AI_MATKEY_NAME, materialName);
 
   // Load constants.
   aiColor3D tempColor;
@@ -218,8 +230,8 @@ bool Scene::loadMaterial(const aiMaterial* aimaterial, const char* filepath,
 }
 
 bool Scene::loadMaterialTexture(const aiMaterial* aimaterial,
-                                enum aiTextureType textureType,
-                                std::string directory,
+                                const enum aiTextureType textureType,
+                                const std::string filepath,
                                 Texture& outTexture)
 {
   aiString localTexturePath;
@@ -229,8 +241,7 @@ bool Scene::loadMaterialTexture(const aiMaterial* aimaterial,
   // Only use the first texture even if there are more.
   if (aimaterial->GetTextureCount(textureType) > 0 && hasTexture)
   {    
-    return outTexture.loadTextureData(directory+localTexturePath.data);
+    return outTexture.loadTextureData(filepath+localTexturePath.data);
   }
   return true;
 }
-

@@ -5,6 +5,9 @@
 
 #include <glm/glm.hpp>
 
+/**
+ * @brief Defines the type of light.
+ */
 enum LightType
 {
   point = 0,
@@ -12,6 +15,9 @@ enum LightType
   directional = 2,
 };
 
+/**
+ * @brief Defines the properties of a light objects.
+ */
 struct Light
 {
   glm::vec3 position = glm::vec3(0.0f);
@@ -26,7 +32,7 @@ struct Light
   float intensity = 100.0f;
   // 16 bytes
 
-  // int enabled;
+  // int enabled = 1;
   int type = LightType::point;
   glm::vec3 dummy = glm::vec3(0.0f);
   // 16 bytes

@@ -1,149 +1,180 @@
+#include "Material.h"
 #include "Shader.h"
+
+#include <glad/glad.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <fstream>
 #include <sstream>
+#include <string>
 #include <iostream>
 
 
 Shader::Shader()
+  : m_shaderId{glCreateProgram()}
 {
-	shaderId = glCreateProgram();
+
 }
 
-Shader::Shader(const char* vertPath, const char* fragPath)
+Shader::Shader(const char* vertPath, const char* fragPath) : Shader()
 {
-  shaderId = glCreateProgram();
-  loadVertexShader(vertPath);
-  loadFragmentShader(fragPath);
-  compileShaderProgram();
+  load(vertPath, fragPath);
 }
 
 Shader::~Shader()
 {
-	glDeleteProgram(shaderId);
+	glDeleteProgram(m_shaderId);
 }
 
-void Shader::loadVertexShader(const char* sourcePath)
+void Shader::load(const char* vertPath, const char* fragPath)
 {
-  std::string shaderSourceString = loadShaderSource(sourcePath);
-  const char* shaderSource = shaderSourceString.c_str();
-  vertexShader = glCreateShader(GL_VERTEX_SHADER);
-  glShaderSource(vertexShader, 1, &shaderSource, NULL);
-  glCompileShader(vertexShader);
-  if (!shaderCompileLog(vertexShader))
-  {
-    glDeleteShader(vertexShader);
-    vertexShader = 0;
-  };
+  loadShader(vertPath, ShaderType::vertex);
+  loadShader(fragPath, ShaderType::fragment);
+  compileShaderProgram();
 }
 
-void Shader::loadGeometryShader(const char* sourcePath)
+void Shader::loadDefault()
 {
-  std::string shaderSourceString = loadShaderSource(sourcePath);
-  const char* shaderSource = shaderSourceString.c_str();
-  geometryShader = glCreateShader(GL_GEOMETRY_SHADER);
-  glShaderSource(geometryShader, 1, &shaderSource, NULL);
-  glCompileShader(geometryShader);
-  if (!shaderCompileLog(geometryShader))
-  {
-    glDeleteShader(geometryShader);
-    geometryShader = 0;
-  };
-
-  hasGeometryShader = true;
+  load("..\\..\\res\\shaders\\default.vert",
+       "..\\..\\res\\shaders\\default.frag");
 }
 
-void Shader::loadFragmentShader(const char* sourcePath)
+void Shader::loadShader(const char* sourcePath, const ShaderType type)
 {
-  std::string shaderSourceString = loadShaderSource(sourcePath);
-  const char* shaderSource = shaderSourceString.c_str(); 
-  fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-  glShaderSource(fragmentShader, 1, &shaderSource, NULL);
-  glCompileShader(fragmentShader);
-  if (!shaderCompileLog(fragmentShader))
+  switch(type)
   {
-    glDeleteShader(fragmentShader);
-    fragmentShader = 0;
-  };
+  case ShaderType::vertex:
+    loadShaderType(sourcePath, GL_VERTEX_SHADER, m_vertexShader);
+    break;
+  case ShaderType::fragment:
+    loadShaderType(sourcePath, GL_FRAGMENT_SHADER, m_fragmentShader);
+    break;
+  case ShaderType::geometry:
+    loadShaderType(sourcePath, GL_GEOMETRY_SHADER, m_geometryShader);
+    break;
+  default:
+    std::cerr << "ERROR::SHADER::Unknown shader type." << std::endl;
+    return;
+  }
 }
 
 void Shader::compileShaderProgram()
 {
-  glAttachShader(shaderId, vertexShader);
-  glAttachShader(shaderId, fragmentShader);
+  glAttachShader(m_shaderId, m_vertexShader);
+  glAttachShader(m_shaderId, m_fragmentShader);
 
-  if (hasGeometryShader)
-    glAttachShader(shaderId, geometryShader);
+  if (m_hasGeometryShader)
+    glAttachShader(m_shaderId, m_geometryShader);
   
-  glLinkProgram(shaderId);
-  if (!shaderLinkLog(shaderId))
+  glLinkProgram(m_shaderId);
+  if (!shaderLinkLog(m_shaderId))
   {
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
-    vertexShader = 0;
-    fragmentShader = 0;
+    glDeleteShader(m_vertexShader);
+    glDeleteShader(m_fragmentShader);
+    m_vertexShader = 0;
+    m_fragmentShader = 0;
 
-    if (hasGeometryShader)
+    if (m_hasGeometryShader)
     {
-      glDeleteShader(geometryShader);
-      geometryShader = 0;
-      hasGeometryShader = false;
+      glDeleteShader(m_geometryShader);
+      m_geometryShader = 0;
+      m_hasGeometryShader = false;
     }
   };
 }
 
-void Shader::use()
+void Shader::use() const
 {
-  glUseProgram(shaderId);
+  glUseProgram(m_shaderId);
 }
 
-void Shader::setUniformBool(const std::string& name, bool value)
+void Shader::bindMaterial(const Material& material) const
 {
-  glUniform1i(glGetUniformLocation(shaderId, name.c_str()), (int)value);
+  // Warning: This assumes implicit knowledge between *all* shaders and *all*
+  //          materials. One way to ensure this relationship is to have a
+  //          universal material in which case the binding is necessary only 
+  //          once. Could be done when during use(). 
+  // TODO: Build a universal material and shader layout.
+  use();
+
+  // Set the material uniforms.
+  setUniformVec3f("colorAmbient", material.colorAmbient);
+  setUniformVec3f("colorDiffuse", material.colorDiffuse);
+  setUniformVec3f("colorSpecular", material.colorSpecular);
+  setUniformFloat("specularStrength", material.specularStrength);
+  
+  // Bind the textures.
+  setUniformInt("textureDiffuse", 0);
+  material.textureDiffuse.bind(0);
+
+  setUniformInt("textureSpecular", 1);
+  material.textureSpecular.bind(1);
 }
 
-void Shader::setUniformInt(const std::string& name, int value)
+void Shader::setUniformBool(const std::string& name, const bool value) const
 {
-  glUniform1i(glGetUniformLocation(shaderId, name.c_str()), value);
+  glUniform1i(glGetUniformLocation(m_shaderId, name.c_str()), static_cast<int>(value));
 }
 
-void Shader::setUniformFloat(const std::string& name, float value)
+void Shader::setUniformInt(const std::string& name, const int value) const
 {
-  glUniform1f(glGetUniformLocation(shaderId, name.c_str()), value);
+  glUniform1i(glGetUniformLocation(m_shaderId, name.c_str()), value);
 }
 
-void Shader::setUniformVec3f(const std::string& name, float value[])
+void Shader::setUniformFloat(const std::string& name, const float value) const
 {
-  int shaderUniformLocation = glGetUniformLocation(shaderId, name.c_str());
+  glUniform1f(glGetUniformLocation(m_shaderId, name.c_str()), value);
+}
+
+void Shader::setUniformVec3f(const std::string& name, const float value[]) const
+{
+  int shaderUniformLocation = glGetUniformLocation(m_shaderId, name.c_str());
   glUniform3fv(shaderUniformLocation, 1, value);
 }
 
-void Shader::setUniformVec3f(const std::string& name, glm::vec3 value)
+void Shader::setUniformVec3f(const std::string& name, const glm::vec3 value) const
 {
-  int shaderUniformLocation = glGetUniformLocation(shaderId, name.c_str());
+  int shaderUniformLocation = glGetUniformLocation(m_shaderId, name.c_str());
   glUniform3fv(shaderUniformLocation, 1, glm::value_ptr(value));
 }
 
-void Shader::setUniformVec4f(const std::string& name, float value[])
+void Shader::setUniformVec4f(const std::string& name, const float value[]) const
 {
-  int shaderUniformLocation = glGetUniformLocation(shaderId, name.c_str());
+  int shaderUniformLocation = glGetUniformLocation(m_shaderId, name.c_str());
   glUniform4fv(shaderUniformLocation, 1, value);
 }
 
-void Shader::setUniformVec4f(const std::string& name, glm::vec4 value)
+void Shader::setUniformVec4f(const std::string& name, const glm::vec4 value) const
 {
-  int shaderUniformLocation = glGetUniformLocation(shaderId, name.c_str());
+  int shaderUniformLocation = glGetUniformLocation(m_shaderId, name.c_str());
   glUniform4fv(shaderUniformLocation, 1, glm::value_ptr(value));
 }
 
-void Shader::setUniformMatrix4f(const std::string& name, glm::mat4 value)
+void Shader::setUniformMatrix4f(const std::string& name, const glm::mat4 value) const
 {
-  int shaderUniformLocation = glGetUniformLocation(shaderId, name.c_str());
+  int shaderUniformLocation = glGetUniformLocation(m_shaderId, name.c_str());
   glUniformMatrix4fv(shaderUniformLocation, 1, 0, glm::value_ptr(value));
 }
 
+void Shader::loadShaderType(const char* sourcePath, const GLenum glShaderType,
+                            GLuint& shader)
+{
+  std::string shaderSourceString = readShaderSource(sourcePath);
+  const char* shaderSource = shaderSourceString.c_str(); 
+  
+  shader = glCreateShader(glShaderType);
+  glShaderSource(shader, 1, &shaderSource, NULL);
+  glCompileShader(shader);
+  if (!shaderCompileLog(shader))
+  {
+    glDeleteShader(shader);
+    shader = 0;
+  }
+}
 
-std::string Shader::loadShaderSource(const char* sourcePath)
+std::string Shader::readShaderSource(const char* sourcePath)
 {
   std::string shaderSource;
   std::ifstream shaderFile;

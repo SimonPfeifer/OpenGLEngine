@@ -4,11 +4,8 @@
 
 #include <iostream>
 
-Texture::Texture()
+Texture::Texture() 
 {
-	width = 0;
-	height = 0;
-
   glGenTextures(1, &textureId);
 }
 
@@ -27,8 +24,8 @@ void Texture::bind(const int textureSlot) const
 void Texture::emptyTexture2D(int width, int height,
                              GLint format, GLenum type)
 {
-  this->width = width;
-  this->height = height;
+  m_width = width;
+  m_height = height;
 
   glBindTexture(GL_TEXTURE_2D, textureId);
   glTexImage2D(GL_TEXTURE_2D, 0, format,
@@ -37,12 +34,12 @@ void Texture::emptyTexture2D(int width, int height,
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void Texture::emptyTexture3D(int width, int height, int depth,
-                             GLint format, GLenum type)
+void Texture::emptyTexture3D(const int width, const int height, const int depth,
+                             const GLint format, const GLenum type)
 {
-  this->width = width;
-  this->height = height;
-  this->depth = depth;
+  m_width = width;
+  m_height = height;
+  m_depth = depth;
 
   glBindTexture(GL_TEXTURE_2D_ARRAY, textureId);
   glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, format,
@@ -59,7 +56,7 @@ bool Texture::loadTextureData(const char* filepath)
 
 	// Load the image data.
   int colorChannels;
-	unsigned char* data = stbi_load(filepath, &width, &height,
+	unsigned char* data = stbi_load(filepath, &m_width, &m_height,
 		&colorChannels, 0);
 	if (data)
 	{
@@ -78,7 +75,7 @@ bool Texture::loadTextureData(const char* filepath)
     glBindTexture(GL_TEXTURE_2D, textureId);
 
 		// Bind image to GL texture buffer.
-		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format,
+		glTexImage2D(GL_TEXTURE_2D, 0, format, m_width, m_height, 0, format,
                  GL_UNSIGNED_BYTE, data);
     
     // Set texture mapping attributes.
@@ -106,14 +103,14 @@ bool Texture::loadTextureData(const char* filepath)
   return success;
 }
 
-bool Texture::loadTextureData(std::string filepath)
+bool Texture::loadTextureData(const std::string filepath)
 {
   return loadTextureData(filepath.c_str());
 }
 
-// Fix this madness!
+// TODO: Fix this madness!
 // TODO: Make texture type part of the object.
-void Texture::minMagFilter2D(GLint minFilter, GLint magFilter)
+void Texture::minMagFilter2D(const GLint minFilter, const GLint magFilter)
 {
 
   glBindTexture(GL_TEXTURE_2D, textureId);
@@ -122,7 +119,7 @@ void Texture::minMagFilter2D(GLint minFilter, GLint magFilter)
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void Texture::wrapMode2D(GLint sMode, GLint tMode)
+void Texture::wrapMode2D(const GLint sMode, const GLint tMode)
 {
   // Warning! Hard wired for 2D texture!
   glBindTexture(GL_TEXTURE_2D, textureId);
@@ -131,9 +128,9 @@ void Texture::wrapMode2D(GLint sMode, GLint tMode)
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-void Texture::minMagFilter3D(GLint minFilter, GLint magFilter)
+void Texture::minMagFilter3D(const GLint minFilter, const GLint magFilter)
 {
-  // Warning! Hard wired for 2D texture!
+  // Warning! Hard wired for 3D texture!
   // TODO: Make texture type part of the object.
   glBindTexture(GL_TEXTURE_2D_ARRAY, textureId);
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, minFilter);
@@ -141,11 +138,12 @@ void Texture::minMagFilter3D(GLint minFilter, GLint magFilter)
   glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 }
 
-void Texture::wrapMode3D(GLint sMode, GLint tMode)
+void Texture::wrapMode3D(const GLint sMode, const GLint tMode, const GLuint rMode)
 {
-  // Warning! Hard wired for 2D texture!
+  // Warning! Hard wired for 3D texture!
   glBindTexture(GL_TEXTURE_2D_ARRAY, textureId);
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, sMode);
   glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, tMode);
+  glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_R, rMode);
   glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
 }
