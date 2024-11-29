@@ -12,7 +12,7 @@ gcc
 My way of installing `cmake` and `gcc` on Windows is via [msys2](https://www.msys2.org/) with the package manager `pacman`.
 
 ```
-pacman -S mingw-w64-x86_64-toolchain cmake
+pacman -S make cmake gcc
 ```
 
 ## Building
@@ -46,9 +46,9 @@ The executable is located in:
 Control the camera with your mouse.
 ```
 W     : forward
-A     : right
+A     : left
 S     : back
-D     : left
+D     : right
 Space : up
 Ctrl  : down
 Q     : quit
