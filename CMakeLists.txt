@@ -60,10 +60,12 @@ target_link_libraries(${PROJECT_NAME} glm)
 
 # Add Assimp.
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Generation of shared libs")
-set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT OFF CACHE BOOL "Build Assimp with all exporters enabled.")
-set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Build test suite for Assimp.")
 set(ASSIMP_INSTALL OFF CACHE BOOL "Install Assimp library.")
+set(ASSIMP_BUILD_TESTS OFF CACHE BOOL "Build test suite for Assimp.")
 set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE BOOL "Treat all warnings as errors." FORCE)
+set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT OFF CACHE BOOL "Build all exporters.")
+set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT OFF CACHE BOOL "Build all importers.")
+set(ASSIMP_BUILD_GLTF_IMPORTER ON CACHE BOOL "Build glTF importer.")
 add_subdirectory(external/assimp)
 target_link_libraries(${PROJECT_NAME} assimp::assimp)
 
