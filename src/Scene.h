@@ -31,7 +31,7 @@ class Scene
 {
 public:
   Scene() = default;
-  ~Scene();
+  ~Scene() = default;
 
   Scene(const Scene& other) = delete;
   Scene& operator=(const Scene& other) = delete;

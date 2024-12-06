@@ -108,8 +108,7 @@ Application::~Application()
 {
   // Shutdown order is the reverse of the initialization order.
   // Shutdown scene.
-  m_scene->clear();
-  m_scene = new Scene();
+  delete m_scene;
 
   // Shutdown GUI.
   delete m_gui;

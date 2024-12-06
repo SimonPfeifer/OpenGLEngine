@@ -10,11 +10,6 @@
 #define ASSIMP_LOAD_FLAGS (aiProcess_Triangulate | aiProcess_GenSmoothNormals | aiProcess_JoinIdenticalVertices)
 
 
-Scene::~Scene()
-{
-  clear();
-}
-
 bool Scene::loadModel(const char* filepath,
                       glm::vec3 position, glm::vec3 rotation, glm::vec3 scale)
 {
