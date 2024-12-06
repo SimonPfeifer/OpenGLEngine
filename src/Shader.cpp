@@ -107,10 +107,10 @@ void Shader::bindMaterial(const Material& material) const
   
   // Bind the textures.
   setUniformInt("textureDiffuse", 0);
-  material.textureDiffuse.bind(0);
+  material.textureDiffuse.bindToSlot(0);
 
   setUniformInt("textureSpecular", 1);
-  material.textureSpecular.bind(1);
+  material.textureSpecular.bindToSlot(1);
 }
 
 void Shader::setUniformBool(const std::string& name, const bool value) const

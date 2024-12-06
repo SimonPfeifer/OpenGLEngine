@@ -10,38 +10,30 @@
 class Texture
 {
 public:
-	Texture();
-  Texture(const char* filepath);
-
+  Texture(const GLenum textureType, const GLint textureFormat,
+          const GLenum textureDataType);
+	virtual ~Texture() = default;
+  
   /**
-   * @brief Bind the rexture to a texture slot.
+   * @brief Bind the texture.
    * 
    * @param textureSlot Number of the texture slot.
    */
-  void bind(const int textureSlot) const;
+  virtual void bind() const;
 
   /**
-   * @brief Generate an empty 2D texture object.
+   * @brief Unbind the texture.
    * 
-   * @param width Texture width.
-   * @param height Texture height.
-   * @param format OpenGL texture format.
-   * @param type OpenGL texture type.
+   * @param textureSlot Number of the texture slot.
    */
-  void emptyTexture2D(const int width, const int height, const GLint format,
-                      const GLenum type);
+  virtual void unbind() const;
 
-    /**
-   * @brief Generate an empty 3D texture object.
+  /**
+   * @brief Bind the texture to a texture slot.
    * 
-   * @param width Texture width.
-   * @param height Texture height.
-   * @param depth Texture depth.
-   * @param format OpenGL texture format.
-   * @param type OpenGL texture type.
+   * @param textureSlot Number of the texture slot.
    */
-  void emptyTexture3D(const int width, const int height, const int depth,
-                      const GLint format, const GLenum type);
+  virtual void bindToSlot(const int textureSlot) const;
 
   /**
    * @brief Load a texture image. Return success state.
@@ -50,52 +42,47 @@ public:
    * @return true 
    * @return false 
    */
-	bool loadTextureData(const char* filepath);
-  bool loadTextureData(const std::string filepath);
+	virtual bool loadTextureData(const char* filepath) = 0;
+  virtual bool loadTextureData(const std::string& filepath) = 0;
 
   /**
-   * @brief Set the minify and magnify filtering for a 2D texture.
+   * @brief Empty the data in the texture.
+   */
+  virtual void emptyTexture() = 0;
+
+  /**
+   * @brief Set the minify and magnify filtering.
    * 
    * @param minFilter OpenGL filter type for minify.
    * @param magFilter OpenGL filter type for magnify.
    */
-  void minMagFilter2D(const GLint minFilter, const GLint magFilter);
+  virtual void minMagFilter(const GLint minFilter, const GLint magFilter);
+  
+  /**
+   * @brief Set the wrapping behaviour at the edges of the texture.
+   * 
+   * @param sMode OpenGL mode in the S direction.
+   * @param tMode OpenGL mode in the T direction.
+   * @param rMode OpenGL mode in the R direction.
+   */
+  virtual void wrapMode(const GLint sMode, const GLint tMode, const GLint rMode);
 
   /**
-   * @brief Set the wrapping behaviour at the edges of a 2D texture.
-   * 
-   * @param sMode OpenGL mode in the s direction.
-   * @param tMode OpenGL mode in the t direction.
+   * @brief Generate a complete mipmap set for this texture.
    */
-  void wrapMode2D(const GLint sMode, const GLint tMode);
-
-  /**
-   * @brief Set the minify and magnify filtering for a 3D texture.
-   * 
-   * @param minFilter OpenGL filter type for minify.
-   * @param magFilter OpenGL filter type for magnify.
-   */
-  void minMagFilter3D(const GLint minFilter, const GLint magFilter);
-
-  /**
-   * @brief Set the wrapping behaviour at the edges of a 3D texture.
-   * 
-   * @param sMode OpenGL mode in the s direction.
-   * @param tMode OpenGL mode in the t direction.
-   * @param rMode OpenGL mode in the r direction.
-   */
-  void wrapMode3D(const GLint sMode, GLint tMode, const GLuint rMode);
+  virtual void generateMipmap() const;
 
   /** Getters and setters. */
-  GLuint getId() const {return textureId;}
-  int getWidth() const {return m_width;}
-  int getHeight() const {return m_height;}
-  int getDepth() const {return m_depth;}
+  GLuint getId() const {return m_textureId;}
+  GLenum getTextureType() const {return m_textureType;}
+  GLint getTextureFormat() const {return m_textureFormat;}
+  GLuint getTextureDataType() const {return m_textureDataType;}
 
-private:
-	GLuint textureId{};
+protected:
+	GLuint m_textureId{};
+  GLenum m_textureType{};
+  GLint m_textureFormat{};
+  GLenum m_textureDataType{};
 
-	int m_width{};
-	int m_height{};
-  int m_depth{};
+  GLenum translateTextureFormat(const int nColorChannels) const;
 };

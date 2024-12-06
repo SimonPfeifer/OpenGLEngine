@@ -17,6 +17,7 @@ void framebuffer_size_callback(GLFWwindow*, int width, int height)
 void window_pos_callback(GLFWwindow*, int xpos, int ypos)
 {
   // Add callback functionality.
+  std::cout << "Window position: " << xpos << ", " << ypos << std::endl;
 }
 
 void window_close_callback(GLFWwindow*)

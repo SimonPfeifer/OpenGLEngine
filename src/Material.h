@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Texture.h"
+#include "Texture2D.h"
 
 #include <glm/glm.hpp>
 
@@ -55,6 +55,6 @@ public:
   glm::vec2 padding{};
   // 92 bytes
 
-  Texture textureDiffuse{};
-  Texture textureSpecular{};
+  Texture2D textureDiffuse{};
+  Texture2D textureSpecular{};
 };

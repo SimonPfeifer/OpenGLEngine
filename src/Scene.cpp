@@ -1,4 +1,5 @@
 #include "Scene.h"
+#include "Texture2D.h"
 
 #include <glad/glad.h>
 
@@ -204,7 +205,7 @@ bool Scene::loadMaterial(const aiMaterial* aimaterial, const char* filepath,
   }
 
   // Load each texture type.
-  Texture texture;
+  Texture2D texture;
   if (!loadMaterialTexture(aimaterial, aiTextureType_DIFFUSE, directory, texture))
   {
     success = false;
