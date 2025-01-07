@@ -29,6 +29,9 @@ set(SRC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Mesh.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Transform.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Scene.cpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Mac.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/FluidSimulation.cpp
 )
 add_executable(${PROJECT_NAME} ${SRC})
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)

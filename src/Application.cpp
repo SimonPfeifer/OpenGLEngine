@@ -9,16 +9,21 @@
 #include "Application.h"
 #include "Scene.h"
 
+#include "Mac.h"
+#include "FluidSimulation.h"
+
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <glm/glm.hpp>
 
+static int PAUSE_STATE = 0;
+
 // TODO: This should be its own Input handler class.
 void processInput(GLFWwindow* window, Camera &camera, float deltaTime)
 {
   // Toggle pause state for menu use.
-  static int PAUSE_STATE = 0;
+  // static int PAUSE_STATE = 0;
   static int escapePress = GLFW_RELEASE;
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS &&
       escapePress == GLFW_RELEASE)
@@ -35,18 +40,18 @@ void processInput(GLFWwindow* window, Camera &camera, float deltaTime)
     }
   }
   escapePress = glfwGetKey(window, GLFW_KEY_ESCAPE);
+  
+  // Crude Camera controls.
+  // Call this callback function every time the cursor moves.
+  double currentCursorPosX, currentCursorPosY;
+  glfwGetCursorPos(window, &currentCursorPosX, &currentCursorPosY);
+  camera.applyMouseInput((float)currentCursorPosX, (float)currentCursorPosY, PAUSE_STATE);
 
   if (!PAUSE_STATE)
   {
     // Close the window with Q.
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
       glfwSetWindowShouldClose(window, true);
-
-    // Crude Camera controls.
-    // Call this callback function every time the cursor moves.
-    double currentCursorPosX, currentCursorPosY;
-    glfwGetCursorPos(window, &currentCursorPosX, &currentCursorPosY);
-    camera.applyMouseInput((float)currentCursorPosX, (float)currentCursorPosY, PAUSE_STATE);
 
     // Use keybord input to move in all 6 directions.
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
@@ -74,7 +79,7 @@ Application::Application()
   }
 
   // Need to create a window and make it current for GLAD to initialize.
-  m_window = new Window("Rendering Engine", 1, 1);
+  m_window = new Window("Rendering Engine", 1280, 720);
   m_window->setResolution(WindowResolution::r720);
   
   // Initialize the GLAD library.
@@ -129,12 +134,16 @@ void Application::run()
   //       modified and saved.
   // Setup the scene.
   // Camera.
-  m_scene->camera.position = glm::vec3(10.0f, 50.0f, 0.0f);
-  m_scene->camera.lookAt(glm::vec3(0.0f, 50.0f, 0.0f));
-
+  m_scene->camera.position = glm::vec3(0.0f, 0.0f, 5.0f);
+  double currentCursorPosX, currentCursorPosY;
+  glfwGetCursorPos(m_window->getWindowInstance(), &currentCursorPosX, &currentCursorPosY);
+  m_scene->camera.applyMouseInput((float)currentCursorPosX, (float)currentCursorPosY, 1);
+  m_scene->camera.yaw = 180.0f;
+  
   // Models.
-  const char* sponza = "..\\res\\assets\\sponza\\glTF\\Sponza.gltf";
-  m_scene->loadModel(sponza, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.05f));
+  // const char* sponza = "../../../res/assets/sponza/glTF/Sponza.gltf";
+  // m_scene->loadModel(sponza, glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.05f));
+
 
   // Lights.
   Light sun;
@@ -143,7 +152,53 @@ void Application::run()
   sun.color = glm::vec3(1.0f, 0.95f, 0.7f);
   sun.intensity = 80.0f;
   m_scene->lights.push_back(sun);
+
+  // Simulation
+  int nCellsX = 100;
+  int nCellsY = 100;
+  FluidSimulation sim(1.0f, 1.0f, nCellsX, nCellsY);
+  // for (int i=0; i<10; ++i)
+  //   sim.update(0.01f);
+
+  Material fluidMaterial;
+
+  unsigned int materialId = m_scene->materials.add();
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  // std::vector<float> testOutput(nCellsX*nCellsX, 1.0f);
+  // m_scene->materials.get(materialId).textureDiffuse.setTextureData(nCellsX, nCellsX, GL_RED,
+  //   GL_FLOAT, testOutput.data());
+  m_scene->materials.get(materialId).textureDiffuse.setTextureData(nCellsX, nCellsX, GL_RED,
+    GL_FLOAT, sim.outputPressure());
+  m_scene->materials.get(materialId).textureDiffuse.wrapMode(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+  m_scene->materials.get(materialId).textureDiffuse.minMagFilter(GL_NEAREST_MIPMAP_LINEAR, GL_NEAREST);
+  m_scene->materials.get(materialId).textureDiffuse.generateMipmap();
+
+  float quadWidth = 10.0f;
+  float quadHeight = 10.0f;
+  std::vector<Vertex> vertices;
+  vertices.emplace_back(Vertex(glm::vec3(0.0f, 0.0f, 0.0f),
+                        glm::vec3(0.0f, 0.0f, -1.0f),
+                        glm::vec2(0.0f, 0.0f)));
+  vertices.emplace_back(Vertex(glm::vec3(quadWidth, 0.0f, 0.0f),
+                        glm::vec3(0.0f, 0.0f, -1.0f),
+                        glm::vec2(1.0f, 0.0f)));
+  vertices.emplace_back(Vertex(glm::vec3(0.0f, quadHeight, 0.0f),
+                        glm::vec3(0.0f, 0.0f, -1.0f),
+                        glm::vec2(0.0f, 1.0f)));
+  vertices.emplace_back(Vertex(glm::vec3(quadWidth, quadHeight, 0.0f),
+                        glm::vec3(0.0f, 0.0f, -1.0f),
+                        glm::vec2(1.0f, 1.0f)));
+  std::vector<int> indices{0, 1, 2, 2, 1, 3};
+  unsigned int meshId = m_scene->meshes.add();
+  m_scene->meshes.get(meshId).loadVertexData(vertices, indices);
+
+  unsigned int transformId = m_scene->transforms.add();
+  m_scene->transforms.get(transformId).setPosition(glm::vec3(-quadWidth/2., -quadHeight/2., -10.0f));
+  // m_scene->transforms.get(transformId).setRotation(glm::vec3(0.0f, 180.0f, 0.0f));
+  std::vector<unsigned int> transformIds{transformId};
   
+  m_scene->instances.emplace_back(Instance(meshId, materialId, transformIds));
+
   std::cout << "Running!" << std::endl;
   while (m_window->isAlive())
   {
@@ -164,6 +219,12 @@ void Application::run()
     // Update lights.
 
     // Update objects.
+
+    // Update fluid simulation.
+    if (!PAUSE_STATE)
+      sim.update(0.01f);
+    m_scene->materials.get(materialId).textureDiffuse.setTextureData(nCellsX, nCellsX, GL_RED,
+      GL_FLOAT, sim.outputSmoke());
 
     // Main application loop.
     m_renderer->render(*m_scene, *m_window);

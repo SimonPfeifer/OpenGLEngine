@@ -21,8 +21,8 @@ Renderer::Renderer()
   // TODO: Shaders should probably not be hard coded. Maybe include as part of
   //       the scene in their own database. "Ubershader" would only require one.
   // Load shader.
-  m_shader.load("..\\..\\res\\shaders\\blinn.vert",
-                "..\\..\\res\\shaders\\blinn.frag");
+  m_shader.load("../../../res/shaders/fluid.vert",
+                "../../../res/shaders/fluid.frag");
 }
 
 void Renderer::render(const Scene& scene, const Window& window) const

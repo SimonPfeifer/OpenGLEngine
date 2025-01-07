@@ -4,11 +4,6 @@
 #include "Window.h"
 
 
-void window_size_callback(GLFWwindow*, int width, int height)
-{
-  glViewport(0, 0, width, height);
-}
-
 void framebuffer_size_callback(GLFWwindow*, int width, int height)
 {
   glViewport(0, 0, width, height);
@@ -76,13 +71,12 @@ Window::Window(const std::string& title, int width, int height, bool fullscreen)
   glfwSetWindowPos(m_window, monitorXpos, monitorYpos+top);
 
   // Set callback functions.
-  glfwSetWindowSizeCallback(m_window, window_size_callback);
-  glfwSetFramebufferSizeCallback(m_window, window_size_callback);
+  //glfwSetWindowSizeCallback(m_window, window_size_callback);
   glfwSetWindowPosCallback(m_window, window_pos_callback);
-  glfwSetWindowCloseCallback 	(m_window, window_close_callback);
+  glfwSetWindowCloseCallback(m_window, window_close_callback);
 
   // // Enable automatic window resizing.
-  // glfwSetFramebufferSizeCallback(m_window, framebuffer_size_callback);
+  glfwSetFramebufferSizeCallback(m_window, framebuffer_size_callback);
   
   // Disable cursor.
   glfwSetInputMode(m_window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -105,7 +99,7 @@ int Window::isAlive()
 
 void Window::getSize(int& width, int& height) const
 {
-  glfwGetWindowSize(m_window, &width, &height);
+  glfwGetFramebufferSize(m_window, &width, &height);
 }
 
 void Window::setSize(const int width, const int height)

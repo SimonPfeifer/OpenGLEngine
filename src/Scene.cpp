@@ -178,7 +178,7 @@ bool Scene::loadMaterial(const aiMaterial* aimaterial, const char* filepath,
   assert((filepath != NULL) && "ERROR::loadMaterial Input filepath is empty");
 
   // WARNING: This is a Windows specific path delimiter.
-  const char delimitor = '\\';
+  const char delimitor = '/';
 
   // Extract the directory part from the file path.
   std::string sfilepath = filepath;
@@ -187,7 +187,7 @@ bool Scene::loadMaterial(const aiMaterial* aimaterial, const char* filepath,
 
   if (lastSlashIndex == std::string::npos)
   {
-    directory = "." + delimitor;
+    directory = std::string(".") + delimitor;
   }
   else if (lastSlashIndex == 0)
   {

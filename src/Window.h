@@ -1,5 +1,10 @@
 #pragma once
 
+#ifdef __APPLE__
+// Removes OpenGL deprecation warning.
+#define GL_SILENCE_DEPRECATION
+#endif
+
 #include <string>
 
 #include <GLFW/glfw3.h>

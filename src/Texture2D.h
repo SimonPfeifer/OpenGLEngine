@@ -22,6 +22,10 @@ public:
   void emptyTexture(const int width, const int height, const GLint format,
                     const GLenum type);
 
+  void setTextureData(const int width, const int height,
+                      const GLint format, const GLenum type,
+                      const void* data);
+
   /** Getters and setters. */
   int getWidth() const {return m_width;}
   int getHeight() const {return m_height;}
@@ -30,7 +34,4 @@ private:
   int m_width = 0;
   int m_height = 0;
 
-  void setTextureData(const int width, const int height,
-                      const GLint format, const GLenum type,
-                      const unsigned char* data);
 };

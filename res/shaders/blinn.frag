@@ -4,7 +4,6 @@ out vec4 fragColor;
 in vec3 vertPosition;
 in vec3 vertNormal;
 in vec2 vertUV;
-in vec4 vertPositionLight;
 
 // Constants
 #define PI 3.14159f
@@ -67,7 +66,7 @@ void main()
 
   // Quick hack! Force ambient color to be less than 1.0f and more
   // than a minimum.
-  float ambientMin = 0.15f;
+  float ambientMin = 0.3f;
   vec3 ambient = vec3(ambientMin);
   if ((colorAmbient.x + colorAmbient.y + colorAmbient.z < 3.0f))
   {
@@ -113,21 +112,6 @@ void main()
       }
     }
 
-    // Sample depth map to determine if vertex is in light.
-    // TODO: replace by depth map texture array.
-    // Perspective division.
-    vec3 projCoords = vertPositionLight.xyz / vertPositionLight.w;
-
-    // Rescale coordinates to [0,1] for depth map comparison.
-    projCoords = projCoords * 0.5f + 0.5f;
-
-    // Sample depth texture using clip space [x,y] and take RED channel value.
-    // This value is the closest point (depth) as seen from the light.
-    float closestDepth = texture(textureDepth, projCoords.xy).r;
-
-    // If the current vertex depth is further than the closes point seen from
-    // the light, the vertex is in shadow.
-    isInLight = projCoords.z - SHADOWBIAS > closestDepth ? false : true;
     isInLight = true; 
     
     // Check against small fudge factor instead of zero. Stops lighting glitch

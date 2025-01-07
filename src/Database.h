@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <map>
 
 /**
@@ -17,7 +18,7 @@ public:
 
   ~Database()
   {
-    clear();
+    // clear();
   }
 
   /**
@@ -66,9 +67,11 @@ public:
    */
   inline bool remove(const unsigned int id)
   {
-    T& object = get(id);
-    objects.erase(id);
-    delete &object;
+    if (has(id))
+    {
+      delete objects.at(id);
+      objects.erase(id);
+    }
     return !(has(id));
   }
 
@@ -88,10 +91,13 @@ public:
    */
   inline void clear()
   {
+    std::cout << nextID << std::endl;
     for (const auto& keyValue : objects)
     {
-      remove(keyValue.first);
+      delete keyValue.second;
     }
+    objects.clear();
+    nextID = 0;
   }
 
 private:

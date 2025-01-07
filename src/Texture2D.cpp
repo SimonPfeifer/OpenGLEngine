@@ -61,7 +61,7 @@ void Texture2D::emptyTexture(const int width, const int height, GLint format,
 
 void Texture2D::setTextureData(const int width, const int height,
                                const GLint format, const GLenum type,
-                               const unsigned char* data)
+                               const void* data)
 {
   glBindTexture(m_textureType, m_textureId);
   glTexImage2D(m_textureType, 0, format,
