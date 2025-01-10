@@ -1,3 +1,5 @@
+#include <memory>
+
 #include "Gui.h"
 
 Gui::Gui(const Window& window)
@@ -38,6 +40,11 @@ Gui::~Gui()
   ImGui::DestroyContext();
 }
 
+void Gui::addWindow(std::unique_ptr<GuiWindow> window)
+{
+  m_guiWindows.emplace_back(std::move(window));
+}
+
 void Gui::render()
 {
   // Setup a new frame.
@@ -45,14 +52,15 @@ void Gui::render()
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
 
-  // Add all ImGui windows here.
-  // Example demo window.
-  ImGui::ShowDemoWindow();
+  // Update all Gui windows.
+  for (auto& window : m_guiWindows)
+  {
+    window->update();
+  }
 
-  // Render the windows.
   ImGui::Render();
   ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-  
+
   // Update and render additional windows.
   ImGuiIO& io = ImGui::GetIO();
   if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)

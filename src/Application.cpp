@@ -11,19 +11,20 @@
 
 #include "Mac.h"
 #include "FluidSimulation.h"
+#include "GuiWindowFluidSimulation.h"
 
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include <glm/glm.hpp>
 
-static int PAUSE_STATE = 0;
+#include <memory>
 
 // TODO: This should be its own Input handler class.
 void processInput(GLFWwindow* window, Camera &camera, float deltaTime)
 {
   // Toggle pause state for menu use.
-  // static int PAUSE_STATE = 0;
+  static int PAUSE_STATE = 0;
   static int escapePress = GLFW_RELEASE;
   if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS &&
       escapePress == GLFW_RELEASE)
@@ -156,12 +157,9 @@ void Application::run()
   // Simulation
   int nCellsX = 100;
   int nCellsY = 100;
-  FluidSimulation sim(1.0f, 1.0f, nCellsX, nCellsY);
-  // for (int i=0; i<10; ++i)
-  //   sim.update(0.01f);
+  FluidSimulation sim(nCellsX, nCellsY, 0.01f);
 
   Material fluidMaterial;
-
   unsigned int materialId = m_scene->materials.add();
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
   // std::vector<float> testOutput(nCellsX*nCellsX, 1.0f);
@@ -199,6 +197,10 @@ void Application::run()
   
   m_scene->instances.emplace_back(Instance(meshId, materialId, transformIds));
 
+  // GUI for editing the fluid simulation.
+  GuiWindowFluidSimulation guiWindowFluidSimulation{sim};
+  m_gui->addWindow(std::make_unique<GuiWindowFluidSimulation>(guiWindowFluidSimulation));
+
   std::cout << "Running!" << std::endl;
   while (m_window->isAlive())
   {
@@ -221,8 +223,7 @@ void Application::run()
     // Update objects.
 
     // Update fluid simulation.
-    if (!PAUSE_STATE)
-      sim.update(0.01f);
+    sim.update(m_deltaTime);
     m_scene->materials.get(materialId).textureDiffuse.setTextureData(nCellsX, nCellsX, GL_RED,
       GL_FLOAT, sim.outputSmoke());
 
@@ -234,4 +235,3 @@ void Application::run()
     m_window->swapBuffers();
   }
 }
-

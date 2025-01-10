@@ -1,21 +1,22 @@
+#include <cmath>
 #include <iostream>
 
 #include "FluidSimulation.h"
 
-FluidSimulation::FluidSimulation(float width, float height, int nCellsX,
-                                 int nCellsY)
-  : m_width{width}, m_height{height}, m_nCellsX{nCellsX}, m_nCellsY{nCellsY},
+FluidSimulation::FluidSimulation(unsigned int nCellsX, unsigned int nCellsY, float dx)
+  : m_nCellsX(static_cast<int>(nCellsX)), m_nCellsY{static_cast<int>(nCellsY)},
+    m_nCells{m_nCellsX*m_nCellsY}, m_dx{dx}, 
+    m_width{static_cast<float>(nCellsX)*dx}, m_height{nCellsY*dx},
+    m_forceX{0.0f}, m_forceY{-10.0f},
+    m_density{1.0f}, m_relaxFactor{1.0f}, m_deltaTime{0.001f}, m_nSweeps{100},
+    m_isPaused{false}, 
     m_mac(nCellsX, nCellsY), m_newMac(nCellsX, nCellsY),
+    m_dVelocity(m_nCellsX, m_nCellsY),
     m_smoke(nCellsX, nCellsY), m_newSmoke(nCellsX, nCellsY),
     m_cellType(nCellsX, nCellsY),
-    m_outputGrid(nCellsX, nCellsY)
+    m_outputGrid(nCellsX, nCellsY),
+    m_residuals(nCellsX, nCellsY)
 {
-  m_nCells = m_nCellsX * m_nCellsY;
-  m_dx = m_width / static_cast<float>(m_nCellsX);
-  m_dy = m_height / static_cast<float>(m_nCellsY);
-
-  m_density = 1.0f;
-
   // Initialize each cell.
   for (int i=0; i<(m_nCellsX); ++i)
   {
@@ -86,14 +87,21 @@ FluidSimulation::FluidSimulation(float width, float height, int nCellsX,
       // Top pour.
       if (i>0 && i<m_nCellsY-1 && j==m_nCellsY-1)
       {
-        m_mac.velocityY.get(i,j) = -100.0f;
-        m_mac.velocityY.get(i,j+1) = -100.0f;
+        m_mac.velocityY.get(i,j) = -100.0f * m_dx;
+        m_mac.velocityY.get(i,j+1) = -100.0f * m_dx;
       }
       if (i>=45 && i<55 && j==m_nCellsY-1)
       {
-        m_mac.velocityY.get(i,j) = -100.0f;
-        m_mac.velocityY.get(i,j+1) = -100.0f;
+        m_mac.velocityY.get(i,j) = -100.0f * m_dx;
+        m_mac.velocityY.get(i,j+1) = -100.0f * m_dx;
         m_smoke.get(i,j) = 1.0f;
+      }
+
+      // Bottom outlet.
+      if (i>0 && i<m_nCellsY-1 && j==0)
+      {
+        m_mac.velocityY.get(i,j) = -100.0f * m_dx;
+        m_mac.velocityY.get(i,j+1) = -100.0f * m_dx;
       }
 
       // Solid obstacle.
@@ -121,29 +129,24 @@ FluidSimulation::FluidSimulation(float width, float height, int nCellsX,
 
 void FluidSimulation::update(float deltaTime)
 {
-  std::cout << "\n#### New step ####\n";
-  std::cout << "deltaTime: " << deltaTime << "\n";
-  printCellInfo(19,50);
-  printCellInfo(80,50);
+  deltaTime = deltaTime + 1.0f;
+  if (!m_isPaused)
+  {
+    // Add body forces to fluid velocity.
+    addForce(m_forceX, m_forceY, m_deltaTime);
 
-  // Add body forces to fluid velocity.
-  std::cout << "Adding forces.\n";
-  addForce(0.0f, -10.0f, deltaTime);
+    // Calculate the pressure assuming incompressibility.
+    project(m_deltaTime);
 
-  // Calculate the pressure assuming incompressibility.
-  std::cout << "Project." << std::endl;
-  // calculatePressure2(deltaTime);
-  project(deltaTime);
+    // Advect velocity via velocity field.
+    advectVelocity(m_deltaTime);
 
-  std::cout << "Max velocity div.: " << maxVelocityDiv() << std::endl;
+    // Advect quantity via velocity field.
+    advectSmoke(m_deltaTime);
 
-  // Advect velocity via velocity field.
-  std::cout << "Advect velocity." << std::endl;
-  advectVelocity(deltaTime);
-
-  // Advect quantity via velocity field.
-  std::cout << "Advect smoke." << std::endl;
-  advectSmoke(deltaTime);
+    // Calculate the residuals of to measure convergance.
+    calculateResidual(m_deltaTime);
+  }
 }
 
 void FluidSimulation::addForce(float forceX, float forceY, float deltaTime)
@@ -169,18 +172,14 @@ void FluidSimulation::addForce(float forceX, float forceY, float deltaTime)
 void FluidSimulation::calculatePressure(float deltaTime)
 {
   // Constants.
-  float factor = m_dx * m_density / deltaTime;
+  float velocityTerm = m_dx * m_density / deltaTime;
   
   // For pressure logging.
-  float minPressure = 100000.0f;
-  float maxPressure = -100000.0f;
-  float maxPressureDiff = -1.0f;
+  m_minPressure = 1e8;
+  m_maxPressure = -1e8;
+  m_maxPressureDiff = -1.0f;
 
-  // Save the velocity divergence as it is constant.
-  Grid<float> dVelocity(m_nCellsX, m_nCellsY);
-
-  int nSteps = 50;
-  for (int n=0; n<nSteps; ++n)
+  for (int n=0; n<m_nSweeps; ++n)
   {
     for (int ii=0; ii<m_nCellsX; ++ii)
     {
@@ -193,78 +192,7 @@ void FluidSimulation::calculatePressure(float deltaTime)
         if (m_cellType.get(i,j)!=CellType::FLUID)
           continue;
 
-        float sumPressure = 0.0f;
-        float nFluidBoundaries = 0.0f;
-        if (m_cellType.get(i-1,j)==CellType::FLUID)
-        {
-          sumPressure += m_mac.pressure.get(i-1,j);
-          nFluidBoundaries++;
-        }
-        if (m_cellType.get(i+1,j)==CellType::FLUID)
-        {
-          sumPressure += m_mac.pressure.get(i+1,j);
-          nFluidBoundaries++;
-        }
-        if (m_cellType.get(i,j-1)==CellType::FLUID)
-        {
-          sumPressure += m_mac.pressure.get(i,j-1);
-          nFluidBoundaries++;
-        }
-        if (m_cellType.get(i,j+1)==CellType::FLUID)
-        {
-          sumPressure += m_mac.pressure.get(i,j+1);
-          nFluidBoundaries++;
-        }
-
-        // Skip if we are surrounded by solid cells.
-        if (nFluidBoundaries==0.0f)
-          continue;
-
-        if (n==0)
-          dVelocity.get(i,j) = m_mac.velocityX.get(i+1,j) - m_mac.velocityX.get(i,j) +
-                               m_mac.velocityY.get(i,j+1) - m_mac.velocityY.get(i,j);
-
-        float relaxFactor = 1.0f;
-        float newPressure = 1.0f/nFluidBoundaries * (sumPressure -
-                            factor * dVelocity.get(i,j));
-        newPressure = (1 - relaxFactor) * m_mac.pressure.get(i,j) +
-                       relaxFactor * newPressure;
-        minPressure = newPressure>minPressure ? minPressure : newPressure;
-        maxPressure = newPressure<maxPressure ? maxPressure : newPressure;
-
-        float pressureDiff = fabsf((newPressure - m_mac.pressure.get(i,j)) / m_mac.pressure.get(i,j));
-        maxPressureDiff = pressureDiff<maxPressureDiff ? maxPressureDiff : pressureDiff;
-
-        m_mac.pressure.get(i,j) = newPressure;
-      }
-    }
-  }
-
-  std::cout << "Min/max pressure: " << minPressure << " -  " << maxPressure << std::endl;
-  std::cout << "Max pressure difference: " << maxPressureDiff << std::endl;
-}
-
-void FluidSimulation::calculatePressure2(float deltaTime)
-{
-  // Some dummy values.
-  float pressureTerms = 0.01f * m_dx / deltaTime;
-  float minPressure = 10000.0f;
-  float maxPressure = -10000.0f;
-
-  int nSteps = 50;
-  for (int n=0; n<nSteps; ++n)
-  {
-    for (int ii=0; ii<m_nCellsX; ++ii)
-    {
-      for (int jj=0; jj<m_nCellsY; ++jj)
-      {
-        // Reverse sweep Gauss-Seidel every other loop.
-        int i = n%2 ? (m_nCellsX-1) - ii : ii;
-        int j = n%2 ? (m_nCellsY-1) - jj : jj;
-
-        if (m_cellType.get(i,j)!=CellType::FLUID)
-          continue;
-
+        // Check which neighbors are fluid cells.
         float isFluidLeft = 0.0f;
         float isFluidRight = 0.0f;
         float isFluidDown = 0.0f;
@@ -277,40 +205,58 @@ void FluidSimulation::calculatePressure2(float deltaTime)
           isFluidDown = 1.0f;
         if (m_cellType.get(i,j+1)==CellType::FLUID)
           isFluidUp = 1.0f;
+          
+        // Skip if we are surrounded by solid cells.
         float nFluidBoundaries = isFluidLeft + isFluidRight +
                                  isFluidDown + isFluidUp;
         if (nFluidBoundaries==0.0f)
           continue;
 
-        float dVelocity = m_mac.velocityX.get(i+1,j) - m_mac.velocityX.get(i,j) +
-                          m_mac.velocityY.get(i,j+1) - m_mac.velocityY.get(i,j);
-        dVelocity /= nFluidBoundaries;
+        // // Alternative method, forcing velocity divergence to be zero.
+        // dVelocity.get(i,j) = m_mac.velocityX.get(i+1,j) - m_mac.velocityX.get(i,j) +
+        //                      m_mac.velocityY.get(i,j+1) - m_mac.velocityY.get(i,j);
+        // dVelocity.get(i,j) /= nFluidBoundaries;
 
-        // Over-relaxation
-        dVelocity *= 1.0f;
+        // // Over-relaxation
+        // dVelocity.get(i,j) *= 1.0f;
 
-        if (n==0)
-          m_mac.pressure.get(i,j) = 0.0f;
-
-        m_mac.pressure.get(i,j)    += pressureTerms * -dVelocity;
-        m_mac.velocityX.get(i,j)   += dVelocity * isFluidLeft;
-        m_mac.velocityX.get(i+1,j) -= dVelocity * isFluidRight;
-        m_mac.velocityY.get(i,j)   += dVelocity * isFluidDown;
-        m_mac.velocityY.get(i,j+1) -= dVelocity * isFluidUp;
-
-        minPressure = m_mac.pressure.get(i,j)>minPressure ? minPressure : m_mac.pressure.get(i,j);
-        maxPressure = m_mac.pressure.get(i,j)<maxPressure ? maxPressure : m_mac.pressure.get(i,j);
+        // if (n==0)
+        //   m_mac.pressure.get(i,j) = 0.0f;
         
-        // if (i==50 && j==50)
-        // {
-        //   std::cout << "Step: " << n << " - dVelocity: " << dVelocity << std::endl;
-        //   std::cout << "Step: " << n << " - pressure: " << m_mac.pressure.get(i,j) << std::endl;
-        // }
+        // float newPressure = m_mac.pressure.get(i,j) - velocityTerm * dVelocity.get(i,j);
+        // m_mac.velocityX.get(i,j)   += dVelocity.get(i,j) * isFluidLeft;
+        // m_mac.velocityX.get(i+1,j) -= dVelocity.get(i,j) * isFluidRight;
+        // m_mac.velocityY.get(i,j)   += dVelocity.get(i,j) * isFluidDown;
+        // m_mac.velocityY.get(i,j+1) -= dVelocity.get(i,j) * isFluidUp;
+
+        // Only need to calculate this once since velocity is not updated.
+        if (n==0)
+          m_dVelocity.get(i,j) = m_mac.velocityX.get(i+1,j) - m_mac.velocityX.get(i,j) +
+                                 m_mac.velocityY.get(i,j+1) - m_mac.velocityY.get(i,j);
+
+        // Calculate the new pressure.
+        float sumPressure = isFluidLeft * m_mac.pressure.get(i-1,j) +
+                            isFluidRight * m_mac.pressure.get(i+1,j) +
+                            isFluidDown * m_mac.pressure.get(i,j-1) +
+                            isFluidUp * m_mac.pressure.get(i,j+1);
+        float newPressure = 1.0f/nFluidBoundaries * (sumPressure -
+                            velocityTerm * m_dVelocity.get(i,j));
+        
+        // Over-relaxation.
+        newPressure = (1 - m_relaxFactor) * m_mac.pressure.get(i,j) +
+                       m_relaxFactor * newPressure;
+
+        // Logging.
+        m_minPressure = newPressure<m_minPressure ? newPressure : m_minPressure;
+        m_maxPressure = newPressure>m_maxPressure ? newPressure : m_maxPressure;
+        float pressureDiff = fabsf((newPressure - m_mac.pressure.get(i,j)) / m_mac.pressure.get(i,j));
+        m_maxPressureDiff = pressureDiff<m_maxPressureDiff ? m_maxPressureDiff : pressureDiff;
+
+        // Update with the new pressure value.
+        m_mac.pressure.get(i,j) = newPressure;
       }
     }
   }
-
-  std::cout << "Min/max pressure: " << minPressure << " -  " << maxPressure << std::endl;
 }
 
 void FluidSimulation::calculateVelocity(float deltaTime)
@@ -352,7 +298,6 @@ void FluidSimulation::advectVelocity(float deltaTime)
       // Simply copy non-fluid velocities.
       if (m_cellType.get(i,j)!=CellType::FLUID)
       {
-        // std::cout << "advectVelocity() - Non-fluid cell: " << i << ", " << j << std::endl;
         m_newMac.velocityX.get(i,j) = m_mac.velocityX.get(i,j);
         m_newMac.velocityX.get(i+1,j) = m_mac.velocityX.get(i+1,j);
         m_newMac.velocityY.get(i,j) = m_mac.velocityY.get(i,j);
@@ -361,7 +306,6 @@ void FluidSimulation::advectVelocity(float deltaTime)
       }
 
       // Position of the centre of the cell.
-      // std::cout << "advectVelocity() - Advect: " << i << ", " << j << std::endl;
       float xMid = static_cast<float>(i);
       float yMid = static_cast<float>(j);
       if (m_cellType.get(i-1,j)==CellType::FLUID)
@@ -371,8 +315,8 @@ void FluidSimulation::advectVelocity(float deltaTime)
         // traceVelocity(x, y, deltaTime);
         float vx = m_mac.velocityX.get(i,j);
         float vy = m_mac.velocityY.sample(xMid-0.5f, yMid+0.5f);
-        float x = xMid - deltaTime * vx;
-        float y = yMid - deltaTime * vy;
+        float x = xMid - deltaTime * vx / m_dx;
+        float y = yMid - deltaTime * vy / m_dx;
         m_newMac.velocityX.get(i,j) = m_mac.velocityX.sample(x, y);
       }
 
@@ -383,8 +327,8 @@ void FluidSimulation::advectVelocity(float deltaTime)
         // traceVelocity(x, y, deltaTime);
         float vx = m_mac.velocityX.sample(xMid+0.5f, yMid-0.5f);
         float vy = m_mac.velocityY.get(i,j);
-        float x = xMid - deltaTime * vx;
-        float y = yMid - deltaTime * vy;
+        float x = xMid - deltaTime * vx / m_dx;
+        float y = yMid - deltaTime * vy / m_dx;
         m_newMac.velocityY.get(i,j) = m_mac.velocityY.sample(x, y);
       }
     }
@@ -403,27 +347,23 @@ void FluidSimulation::advectSmoke(float deltaTime)
       // Simply copy non-fluid velocities.
       if (m_cellType.get(i,j)!=CellType::FLUID)
       {
-        // std::cout << "advectSmoke() - Non-fluid cell: " << i << ", " << j << std::endl;
         m_newSmoke.get(i,j) = m_smoke.get(i,j);
         continue;
       }
 
       // Position of the centre of the cell.
-      // std::cout << "advectSmoke() - Advect: " << i << ", " << j << std::endl;
       float x = static_cast<float>(i);
       float y = static_cast<float>(j);
       float vx = m_mac.velocityX.sample(x+0.5f, y);
       float vy = m_mac.velocityY.sample(x, y+0.5f);
-      x -= deltaTime * vx;
-      y -= deltaTime * vy;
+      x -= deltaTime * vx / m_dx;
+      y -= deltaTime * vy / m_dx;
       // traceVelocity(x, y, deltaTime);
       m_newSmoke.get(i,j) = m_smoke.sampleCubic(x, y);
     }
   }
 
-  // std::cout << "advectSmoke() - Swap grid." << std::endl;;
   m_smoke.swap(m_newSmoke);
-  // std::cout << "advectSmoke() - Done." << std::endl;
 }
 
 void FluidSimulation::traceVelocity(float& x, float& y, float deltaTime)
@@ -505,19 +445,78 @@ float* FluidSimulation::outputSmoke()
   return m_smoke.data();
 }
 
-void FluidSimulation::printCellInfo(int i, int j) const
+void FluidSimulation::getCellInfo(int i, int j, CellInfo& cellInfo) const
 { 
-  std::string iStr = std::to_string(i);
-  std::string jStr = std::to_string(j);
-  std::cout << "Cell(" << iStr << "," << jStr << ")\n";
-  std::cout << "Pressure: " << m_mac.pressure.get(i,j) << "\n";
-  std::cout << "VelocityX: " << m_mac.velocityX.get(i,j) << ", " << m_mac.velocityX.get(i+1,j) << "\n";
-  std::cout << "VelocityY: " << m_mac.velocityY.get(i,j) << ", " << m_mac.velocityY.get(i,j+1) << "\n";
-  float velocityDiv = 1.0 / m_dx *
-                      (m_mac.velocityX.get(i+1,j) - m_mac.velocityX.get(i,j) +
-                       m_mac.velocityY.get(i,j+1) - m_mac.velocityY.get(i,j));
-  std::cout << "Velocity div.: " << velocityDiv << std::endl;
-  std::cout << "Smoke: " << m_smoke.get(i,j) << std::endl;
+  cellInfo.i = i;
+  cellInfo.j = j;
+  cellInfo.pressure = m_mac.pressure.get(i,j);
+  cellInfo.velocityX = m_mac.velocityX.get(i,j);
+  cellInfo.velocityY = m_mac.velocityY.get(i,j);
+  cellInfo.velocityDiv = 1.0 / m_dx *
+                        (m_mac.velocityX.get(i+1,j) - m_mac.velocityX.get(i,j) +
+                         m_mac.velocityY.get(i,j+1) - m_mac.velocityY.get(i,j));
+  cellInfo.smoke = m_smoke.get(i,j);
+  cellInfo.residual = m_residuals.get(i,j);
+}
+
+void FluidSimulation::calculateResidual(float deltaTime)
+{
+  // Constants.
+  float factor = deltaTime / m_density / m_dx / m_dx;
+
+  float count = 0.0f;
+  m_residualL1 = 0.0f;
+  m_residualL2 = 0.0f;
+  m_residualLInf = 0.0f;
+  for (int i=0; i<m_nCellsX; ++i)
+  {
+    for (int j=0; j<m_nCellsY; ++j)
+    {
+      // Simply copy non-fluid velocities.
+      if (m_cellType.get(i,j)!=CellType::FLUID)
+        continue;
+
+      m_dVelocity.get(i,j) = m_mac.velocityX.get(i+1,j) - m_mac.velocityX.get(i,j) +
+                             m_mac.velocityY.get(i,j+1) - m_mac.velocityY.get(i,j);
+
+      // Check which neighbors are fluid cells.
+      float isFluidLeft = 0.0f;
+      float isFluidRight = 0.0f;
+      float isFluidDown = 0.0f;
+      float isFluidUp = 0.0f;
+      if (m_cellType.get(i-1,j)==CellType::FLUID)
+        isFluidLeft = 1.0f;
+      if (m_cellType.get(i+1,j)==CellType::FLUID)
+        isFluidRight = 1.0f;
+      if (m_cellType.get(i,j-1)==CellType::FLUID)
+        isFluidDown = 1.0f;
+      if (m_cellType.get(i,j+1)==CellType::FLUID)
+        isFluidUp = 1.0f;
+      
+      // Skip if we are surrounded by solid cells.
+      float nFluidBoundaries = isFluidLeft + isFluidRight +
+                               isFluidDown + isFluidUp;
+      if (nFluidBoundaries==0.0f)
+        continue;                              
+
+      // Calculate the new pressure.
+      float sumPressure = nFluidBoundaries * m_mac.pressure.get(i,j) -
+                          isFluidLeft * m_mac.pressure.get(i-1,j) -
+                          isFluidRight * m_mac.pressure.get(i+1,j) -
+                          isFluidDown * m_mac.pressure.get(i,j-1) -
+                          isFluidUp * m_mac.pressure.get(i,j+1);
+      m_residuals.get(i,j) = std::fabs(factor * sumPressure +
+                                       m_dVelocity.get(i,j) / m_dx);
+      
+      m_residualL1 += m_residuals.get(i,j);
+      m_residualL2 += m_residuals.get(i,j) * m_residuals.get(i,j);
+      m_residualLInf = m_residuals.get(i,j)>m_residualLInf ? m_residuals.get(i,j) : m_residualLInf;
+      count++;
+    }
+  }
+
+  m_residualL1 /= count;
+  m_residualL2 = std::sqrt(m_residualL2 / count);
 }
 
 float FluidSimulation::maxVelocityDiv() const
