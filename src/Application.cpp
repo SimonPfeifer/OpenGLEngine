@@ -155,6 +155,7 @@ void Application::run()
   m_scene->lights.push_back(sun);
 
   // Simulation
+  float dx = 1.0f;
   int nCellsX = 100;
   int nCellsY = 100;
   FluidSimulation sim(nCellsX, nCellsY, 0.01f);

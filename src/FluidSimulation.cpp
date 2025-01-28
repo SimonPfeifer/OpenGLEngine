@@ -115,6 +115,12 @@ FluidSimulation::FluidSimulation(unsigned int nCellsX, unsigned int nCellsY, flo
         m_smoke.get(i,j) = 0.0f;
       }
 
+      // // Fluid blob.
+      // if (i>=40 && i<60 && j>=(m_nCellsY-1)-30 && j<(m_nCellsY-1)-10)
+      // {
+      //   m_smoke.get(i,j) = 1.0f;
+      // }
+
       // // Smoke shock.
       // if (i>0 && i<30 && j>45 && j<55)
       // {
@@ -262,7 +268,7 @@ void FluidSimulation::calculatePressure(float deltaTime)
 void FluidSimulation::calculateVelocity(float deltaTime)
 {
   // Constants.
-  float factor = deltaTime / m_density / m_dx;
+  double factor = deltaTime / m_density / m_dx;
 
   // Skip over outer most boundaries.
   for (int i=1; i<m_nCellsX; ++i)
@@ -310,26 +316,18 @@ void FluidSimulation::advectVelocity(float deltaTime)
       float yMid = static_cast<float>(j);
       if (m_cellType.get(i-1,j)==CellType::FLUID)
       {
-        // float x = xMid - 0.5f;
-        // float y = yMid;
-        // traceVelocity(x, y, deltaTime);
-        float vx = m_mac.velocityX.get(i,j);
-        float vy = m_mac.velocityY.sample(xMid-0.5f, yMid+0.5f);
-        float x = xMid - deltaTime * vx / m_dx;
-        float y = yMid - deltaTime * vy / m_dx;
-        m_newMac.velocityX.get(i,j) = m_mac.velocityX.sample(x, y);
+        float x = xMid - 0.5f;
+        float y = yMid;
+        traceVelocity(x, y, deltaTime);
+        m_newMac.velocityX.get(i,j) = m_mac.velocityX.sample(x+0.5f, y);
       }
 
       if (m_cellType.get(i,j-1)==CellType::FLUID)
       {
-        // float x = xMid;
-        // float y = yMid - 0.5f;
-        // traceVelocity(x, y, deltaTime);
-        float vx = m_mac.velocityX.sample(xMid+0.5f, yMid-0.5f);
-        float vy = m_mac.velocityY.get(i,j);
-        float x = xMid - deltaTime * vx / m_dx;
-        float y = yMid - deltaTime * vy / m_dx;
-        m_newMac.velocityY.get(i,j) = m_mac.velocityY.sample(x, y);
+        float x = xMid;
+        float y = yMid - 0.5f;
+        traceVelocity(x, y, deltaTime);
+        m_newMac.velocityY.get(i,j) = m_mac.velocityY.sample(x, y+0.5f);
       }
     }
   }
@@ -354,11 +352,11 @@ void FluidSimulation::advectSmoke(float deltaTime)
       // Position of the centre of the cell.
       float x = static_cast<float>(i);
       float y = static_cast<float>(j);
-      float vx = m_mac.velocityX.sample(x+0.5f, y);
-      float vy = m_mac.velocityY.sample(x, y+0.5f);
-      x -= deltaTime * vx / m_dx;
-      y -= deltaTime * vy / m_dx;
-      // traceVelocity(x, y, deltaTime);
+      // float vx = m_mac.velocityX.sample(x+0.5f, y);
+      // float vy = m_mac.velocityY.sample(x, y+0.5f);
+      // x -= deltaTime * vx / m_dx;
+      // y -= deltaTime * vy / m_dx;
+      traceVelocity(x, y, deltaTime);
       m_newSmoke.get(i,j) = m_smoke.sampleCubic(x, y);
     }
   }
@@ -374,45 +372,55 @@ void FluidSimulation::traceVelocity(float& x, float& y, float deltaTime)
   // k3 = f(qn + 3/4*dt*k2)
   // qn+1 = qn + 2/9*dt*k1 + 3/9*dt*k2 + 4/9*dt*k3
 
-  // float k1x = -m_mac.velocityX.sample(x, y);
-  // float k1y = -m_mac.velocityY.sample(x, y);
+  // float vx = -m_mac.velocityX.sample(x+0.5f, y);
+  // float vy = -m_mac.velocityY.sample(x, y+0.5f);
+  // x += deltaTime * vx / m_dx;
+  // y += deltaTime * vy / m_dx;
 
-  // float fac1 = 0.5f * deltaTime;
-  // float x1 = x+fac1*k1x;
-  // float y1 = y+fac1*k1y;
-  // float k2x = 0.0f;
-  // float k2y = 0.0f;
-  // // Only keep tracing velocity if we are still in a fluid cell.
-  // // if (m_cellType.get(static_cast<int>(x1+0.5f),static_cast<int>(y1+0.5f))==CellType::FLUID)
-  // // {
-  // // }
-  //   k2x = -m_mac.velocityX.sample(x1, y1);
-  //   k2y = -m_mac.velocityY.sample(x1, y1);
+  // Offsets since we want to sample the center of the cell with a MAC grid.
+  float k1x = -m_mac.velocityX.sample(x+0.5f, y) / m_dx;
+  float k1y = -m_mac.velocityY.sample(x, y+0.5f) / m_dx;
 
-  // float fac2 = 0.75f * deltaTime;
-  // float x2 = x+fac2*k2x;
-  // float y2 = y+fac2*k2y;
-  // float k3x = 0.0f;
-  // float k3y = 0.0f;
-  // // if (m_cellType.get(static_cast<int>(x2+0.5f),static_cast<int>(y2+0.5f))==CellType::FLUID)
-  // // {
-  // // }
-  //   k3x = -m_mac.velocityX.sample(x2, y2);
-  //   k3y = -m_mac.velocityY.sample(x2, y2);
+  float fac1 = 0.5f * deltaTime;
+  float x1 = x+fac1*k1x;
+  float y1 = y+fac1*k1y;
+  float k2x = 0.0f;
+  float k2y = 0.0f;
+  // Only keep tracing velocity if we are still in a fluid cell.
+  // if (m_cellType.get(static_cast<int>(x1+0.5f),static_cast<int>(y1+0.5f))==CellType::FLUID)
+  // {
+  // }
+  k2x = -m_mac.velocityX.sample(x1+0.5f, y1) / m_dx;
+  k2y = -m_mac.velocityY.sample(x1, y1+0.5f) / m_dx;
+
+  float fac2 = 0.75f * deltaTime;
+  float x2 = x+fac2*k2x;
+  float y2 = y+fac2*k2y;
+  float k3x = 0.0f;
+  float k3y = 0.0f;
+  // if (m_cellType.get(static_cast<int>(x2+0.5f),static_cast<int>(y2+0.5f))==CellType::FLUID)
+  // {
+  // }
+  k3x = -m_mac.velocityX.sample(x2+0.5f, y2) / m_dx;
+  k3y = -m_mac.velocityY.sample(x2, y2+0.5f) / m_dx;
   
-  // fac1 = 2.0f/9.0f*deltaTime;
-  // fac2 = 3.0f/9.0f*deltaTime;
-  // float fac3 = 4.0f/9.0f*deltaTime;
-  // x += fac1*k1x + fac2*k2x + fac3*k3x;
-  // y += fac1*k1y + fac2*k2y + fac3*k3y;
-  x -= deltaTime * m_mac.velocityX.sample(x, y);
-  y -= deltaTime * m_mac.velocityY.sample(x, y);
+  fac1 = 2.0f/9.0f*deltaTime;
+  fac2 = 3.0f/9.0f*deltaTime;
+  float fac3 = 4.0f/9.0f*deltaTime;
+  x += fac1*k1x + fac2*k2x + fac3*k3x;
+  y += fac1*k1y + fac2*k2y + fac3*k3y;
 }
 
 float* FluidSimulation::outputPressure()
 {
-  // Return a copy of the pressure grid.
-  return m_mac.pressure.data();
+  for (int i=0; i<m_nCellsX; ++i)
+  {
+    for (int j=0; j<m_nCellsY; ++j)
+    {
+      m_outputGrid.get(i,j) = m_mac.pressure.get(i, j);
+    }
+  }
+  return m_outputGrid.data();
 }
 
 float* FluidSimulation::outputVelocityX()
